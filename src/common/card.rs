@@ -3,7 +3,7 @@ use crate::common::{rank, suit};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering::{Equal, Greater, Less};
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
 pub struct Card {
     pub rank: rank::Rank,
     pub suit: suit::Suit,
