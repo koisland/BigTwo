@@ -1,4 +1,9 @@
+use std::cmp::Ordering;
+
 use crate::common::{card, rank, suit};
+use itertools::Itertools;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum StackType {
@@ -7,26 +12,128 @@ pub enum StackType {
     Combo,
 }
 
-pub fn get_doubles(hand: &Vec<card::Card>) -> Vec<(card::Card, card::Card)> {
-    // Sort hand before finding doubles.
-    let mut hand_copy = hand.clone();
+pub fn get_dupes(hand: &[card::Card], size: usize) -> Vec<Vec<card::Card>> {
+    // Sort hand before finding duplicates.
+    let mut hand_copy = hand.to_vec();
     hand_copy.sort();
-    let doubles: Vec<(card::Card, card::Card)> = hand_copy
+
+    let duplicates: Vec<Vec<card::Card>> = hand_copy
         .iter()
         .enumerate()
         .filter_map(|(i, card)| {
-            if let Some(next_card) = hand_copy.get(i + 1) {
-                if card.rank == next_card.rank {
-                    Some((card.clone(), next_card.clone()))
-                } else {
-                    None
+            let cards_slice = hand_copy.as_slice();
+            let mut next_cards = cards_slice[i..].iter();
+            // Add the card being iterated over.
+            let mut dupes: Vec<card::Card> = vec![];
+            
+            // Then start from self and look n cards ahead.
+            for _ in 0..size {
+                if let Some(next_card) = next_cards.next() {
+                    if card.rank == next_card.rank {
+                        dupes.push(next_card.clone())
+                    }
                 }
-            } else {
-                None
             }
+            // If duplicates found doesn't equal the length of the desired duplicates.
+            if dupes.len() != size {
+                None
+            } else {
+                Some(dupes)
+            }
+
         })
         .collect();
-    doubles
+    duplicates
+}
+
+pub fn get_bombs(hand: &[card::Card]) {
+
+}
+pub fn get_full_house(hand: &[card::Card]) {
+    let mut hand_copy = hand.to_vec();
+    hand_copy.sort();
+}
+
+pub fn get_straights(hand: &[card::Card]) {
+    let mut hand_copy = hand.to_vec();
+    hand_copy.sort();
+    // straight
+    // straight flush
+    // royal flush
+    let mut contig_cards: Vec<Vec<card::Card>> = vec![];
+    let mut interm_contig_cards: Vec<card::Card> = vec![];
+    for card in hand_copy.iter() {
+        // Check last card in intermediate straight.
+        if let Some(last_card) = interm_contig_cards.last() {
+            
+            let card_rank_value = card.rank.as_value();
+            let last_card_rank_value = last_card.rank.as_value();
+
+            let rank_diff = card_rank_value as i8 - last_card_rank_value as i8;
+
+            if rank_diff == 1 || rank_diff == 0 {
+                interm_contig_cards.push(card.clone());
+            } else {
+                // Ignore intermediates less than 5.
+                if interm_contig_cards.len() > 5 {
+                    contig_cards.push(interm_contig_cards.clone());
+                }
+                interm_contig_cards.clear()
+            }
+        } else {
+            interm_contig_cards.push(card.clone())
+        }
+    }
+
+    contig_cards.push(interm_contig_cards.clone());
+
+    let straights = contig_cards
+        .iter()
+        .map(|seq_cards| 
+            seq_cards
+                .iter()
+                .permutations(5)
+                .filter(|card_perm|{
+                    let perm = card_perm
+                        .iter()
+                        .map(|card| card.rank)
+                        .collect_vec();
+
+                    let all_uniq =  perm.iter().all_unique();
+                    let is_sorted = perm.into_iter().tuple_windows().all(|(a,b)| a < b);
+
+                    all_uniq && is_sorted
+                    })
+                .collect_vec())
+        .collect_vec();
+
+    println!("Possible values: {:#?}", straights);
+}
+
+pub fn get_flushes(hand: &[card::Card]) {
+    let mut hand_copy = hand.to_vec();
+    hand_copy.sort();
+    // flushes
+    let mut possible_flush: Vec<Vec<card::Card>> = vec![];
+    for suit in suit::Suit::iter() {
+        let suit_cards = hand_copy
+            .iter()
+            .filter_map(|card| if card.suit == suit { Some(card.clone()) } else { None })
+            .collect_vec();
+        if suit_cards.len() >= 5 {
+            possible_flush.push(suit_cards);
+        }
+    }
+    println!("Possible flushes: {:#?}", possible_flush);
+}
+pub fn get_combos(hand: &Vec<card::Card>) {
+    // recursive solution?
+    // find cards, pop from vec, and call itself?
+    let mut hand_copy = hand.clone();
+    hand_copy.sort();
+
+    // full house
+    // bomb (4 of kind + 1)
 }
 
 #[derive(Debug)]
@@ -140,31 +247,45 @@ mod tests {
         let mut cards: Vec<card::Card> =
             serde_json::from_reader(&File::open(test_seq_file).unwrap()).unwrap();
 
-        let doubles: Vec<(card::Card, card::Card)> = get_doubles(&cards);
-        for (card_1, card_2) in doubles.iter() {
-            // Get indices of doubles.
-            let double_idx: Vec<usize> = cards
-                .iter()
-                .enumerate()
-                .filter(|(_, card)| *card == card_1 || *card == card_2)
-                .map(|(idx, _)| idx)
-                .collect();
+        let doubles: Vec<Vec<card::Card>> = get_dupes(&cards, 2);
+        for double in doubles.iter() {
+            if let Some(card_1) = double.get(0) {
+                if let Some(card_2) = double.get(1) {
+                    // Get indices of doubles.
+                    let double_idx: Vec<usize> = cards
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, card)| *card == card_1 || *card == card_2)
+                        .map(|(idx, _)| idx)
+                        .collect();
 
-            // Get doubles.
-            let double_hand = double_idx
-                .iter()
-                .map(|idx| cards.get(*idx).unwrap().clone())
-                .collect_vec();
+                    // Get doubles.
+                    let double_hand = double_idx
+                        .iter()
+                        .map(|idx| cards.get(*idx).unwrap().clone())
+                        .collect_vec();
 
-            // If addition to stack is valid.
-            if new_stack.add(double_hand).is_ok() {
-                // Remove added doubles from hand.
-                double_idx.iter().for_each(|idx| {
-                    cards.remove(*idx);
-                })
+                    // If addition to stack is valid.
+                    if new_stack.add(double_hand).is_ok() {
+                        // Remove added doubles from hand.
+                        double_idx.iter().for_each(|idx| {
+                            cards.remove(*idx);
+                        })
+                    }
+                }
             }
         }
 
         println!("{:?}", new_stack);
+    }
+    #[test]
+    fn test_add_combo() {
+        let test_seq_file = "test/cards_dupes.json";
+        let mut new_stack = CardStack::new();
+        let mut cards: Vec<card::Card> =
+            serde_json::from_reader(&File::open(test_seq_file).unwrap()).unwrap();
+
+        let triples = get_dupes(&cards, 2);
+        println!("{:#?}", triples)
     }
 }

@@ -4,7 +4,7 @@ use strum_macros::EnumIter;
 
 /// Big 2 card ranks.
 /// Two is the highest value.
-#[derive(EnumIter, Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(EnumIter, Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum Rank {
     Two,
     Ace,
