@@ -4,23 +4,16 @@ use std::fs::File;
 use std::path::Path;
 
 use crate::common::{card, deck};
-use crate::logic::stack;
+use crate::logic::combo;
 
 fn main() {
-    let cards_test_file = "test/cards.json";
+    let cards_test_file = "test/cards_straights.json";
     if Path::new(cards_test_file).exists() {
         let cards: Vec<card::Card> =
             serde_json::from_reader(&File::open(cards_test_file).unwrap()).unwrap();
 
-        let mut itr_new_cards = cards.iter();
-        let first_card = itr_new_cards.next().unwrap();
-        let second_card = itr_new_cards.next().unwrap();
-        println!(
-            "First Card: {:#?}\nSecond Card: {:#?}",
-            first_card, second_card
-        );
-        println!("Greater than: {}", first_card > second_card);
-        println!("{:?}", cards.iter().max());
+        combo::get_combos(&cards);
+        // println!("{:#?}", combos)
     } else {
         let shuffled_deck = deck::generate_deck();
         let players = 4;

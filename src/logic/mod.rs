@@ -1,3 +1,3 @@
+pub mod choice;
 pub mod combo;
-pub mod doubles;
 pub mod stack;

@@ -1,0 +1,54 @@
+[
+  {
+    "suit": "Spade",
+    "rank": "Four"
+  },
+  {
+    "suit": "Spade",
+    "rank": "Two"
+  },
+  {
+    "suit": "Diamond",
+    "rank": "Three"
+  },
+  {
+    "suit": "Heart",
+    "rank": "King"
+  },
+  {
+    "suit": "Spade",
+    "rank": "Jack"
+  },
+  {
+    "suit": "Diamond",
+    "rank": "Six"
+  },
+  {
+    "suit": "Spade",
+    "rank": "Ten"
+  },
+  {
+    "suit": "Club",
+    "rank": "Five"
+  },
+  {
+    "suit": "Heart",
+    "rank": "Ace"
+  },
+  {
+    "suit": "Heart",
+    "rank": "Seven"
+  },
+  {
+    "suit": "Diamond",
+    "rank": "Queen"
+  },
+  {
+    "suit": "Spade",
+    "rank": "Nine"
+  },
+  {
+    "suit": "Club",
+    "rank": "Ace"
+  }
+]

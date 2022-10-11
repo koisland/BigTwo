@@ -40,7 +40,7 @@ impl Ord for Card {
 
 impl PartialOrd for Card {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 
     fn lt(&self, other: &Self) -> bool {

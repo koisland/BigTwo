@@ -6,7 +6,7 @@
     - A
 
     combo
-    - straight 
+    - straight
         - 9
         - 10
         - J
@@ -24,14 +24,14 @@
 /*
 
     *5 plays
-    
+
     doubles
     - 3
     - 5
     - A
 
     combo
-    - straight 
+    - straight
         - 9
         - 10
         - J
