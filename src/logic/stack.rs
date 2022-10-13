@@ -1,17 +1,10 @@
-use crate::common::card;
+use crate::common::{card, hand::HandType};
 use itertools::Itertools;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum StackType {
-    Single,
-    Double,
-    Combo,
-}
 
 #[derive(Debug)]
 pub struct CardStack {
     stack: Vec<Vec<card::Card>>,
-    mode: Option<StackType>,
+    kind: HandType,
     level: usize,
 }
 
@@ -19,29 +12,28 @@ impl CardStack {
     pub fn new() -> CardStack {
         CardStack {
             stack: Vec::new(),
-            mode: None,
+            kind: HandType::None,
             level: 0,
         }
     }
 
     pub fn add(&mut self, hand: Vec<card::Card>) -> Result<&CardStack, &'static str> {
-        let hand_type: StackType = match hand.len() {
-            1 => StackType::Single,
-            2 => StackType::Double,
-            5 => StackType::Combo,
+        let hand_type: HandType = match hand.len() {
+            1 => HandType::Single,
+            2 => HandType::Double,
+            5 => HandType::Combo,
             _ => return Err("Invalid stack type."),
         };
-        if let Some(current_hand_type) = &self.mode {
-            if *current_hand_type != hand_type {
-                return Err("Current stack type doesn' match previous stack type.");
-            }
+
+        if self.kind != hand_type {
+            return Err("Current stack type doesn' match previous stack type.");
         }
 
-        self.mode = Some(hand_type);
+        self.kind = hand_type;
 
         // Check that addition to stack is valid.
-        match self.mode {
-            Some(StackType::Single) => {
+        match self.kind {
+            HandType::Single => {
                 if let Some(last_hand) = self.stack.last() {
                     // If a card exists on stack...
                     // Otherwise, ignore.
@@ -54,7 +46,7 @@ impl CardStack {
                     }
                 }
             }
-            Some(StackType::Double) => {
+            HandType::Double => {
                 if let Some(last_hand) = self.stack.last() {
                     // Calculate sum of value from doubles.
                     let curr_double_value: f32 = hand.iter().map(|card| card.value()).sum();
@@ -65,7 +57,7 @@ impl CardStack {
                     }
                 }
             }
-            Some(StackType::Combo) => todo!(),
+            HandType::Combo => todo!(),
             _ => todo!(),
         }
 

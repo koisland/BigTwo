@@ -1,15 +1,9 @@
 use crate::common::{card::Card, suit::Suit};
 use itertools::Itertools;
-use strum::IntoEnumIterator;
 use std::thread::{self, JoinHandle};
+use strum::IntoEnumIterator;
 
-type Hand<'a> = (
-    &'a Card,
-    &'a Card,
-    &'a Card,
-    &'a Card,
-    &'a Card,
-);
+type Hand<'a> = (&'a Card, &'a Card, &'a Card, &'a Card, &'a Card);
 
 pub fn get_dupes(hand: &[Card], size: usize) -> Vec<Vec<Card>> {
     // Sort hand before finding duplicates.
@@ -46,7 +40,6 @@ pub fn get_dupes(hand: &[Card], size: usize) -> Vec<Vec<Card>> {
             let dupe_comb_copy = dupe_comb.iter().map(|card| *card.clone()).collect_vec();
             dupe_combs.push(dupe_comb_copy);
         }
-
     }
     dupe_combs
 }
@@ -73,7 +66,9 @@ pub fn get_bombs(hand: &[Card]) -> Vec<Vec<Card>> {
                         let mut quad_copy = quad.clone();
                         quad_copy.push(card.clone());
                         Some(quad_copy)
-                    } else {None}
+                    } else {
+                        None
+                    }
                 })
                 .collect_vec();
 
@@ -99,7 +94,9 @@ pub fn get_full_house(hand: &[Card]) -> Vec<Vec<Card>> {
                 // Don't allow cards that are used for triples.
                 if !triple_cards.contains(&card) {
                     Some(card.clone())
-                } else {None}
+                } else {
+                    None
+                }
             })
             .collect_vec();
         let doubles = get_dupes(&available_cards[..], 2);
@@ -171,8 +168,7 @@ pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
             } else {
                 // Use tuple windows to get contig window of 5-element tuple.
                 for hand in contig_seq.iter().tuple_windows::<Hand>() {
-                    let vec_hand: Vec<Card> =
-                        vec![*hand.0, *hand.1, *hand.2, *hand.3, *hand.4];
+                    let vec_hand: Vec<Card> = vec![*hand.0, *hand.1, *hand.2, *hand.3, *hand.4];
                     straights.push(vec_hand);
                 }
             }
@@ -200,15 +196,27 @@ pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
                         // Add the modified sequence.
                         straights.push(modified_contig_seq);
                     } else {
-                        for (idx_diff, hand) in contig_seq.iter().tuple_windows::<Hand>().enumerate() {
+                        for (idx_diff, hand) in
+                            contig_seq.iter().tuple_windows::<Hand>().enumerate()
+                        {
                             let vec_hand: Vec<Card> = match i - idx_diff {
-                                0 => {vec![*swappable_card, *hand.1, *hand.2, *hand.3, *hand.4]}
-                                1 => {vec![*hand.0, *swappable_card, *hand.2, *hand.3, *hand.4]}
-                                2 => {vec![*hand.0, *hand.1, *swappable_card, *hand.3, *hand.4]}
-                                3 => {vec![*hand.0, *hand.1, *hand.2, *swappable_card, *hand.4]}
-                                _ => {vec![*hand.0, *hand.1, *hand.2, *hand.3, *swappable_card]}
+                                0 => {
+                                    vec![*swappable_card, *hand.1, *hand.2, *hand.3, *hand.4]
+                                }
+                                1 => {
+                                    vec![*hand.0, *swappable_card, *hand.2, *hand.3, *hand.4]
+                                }
+                                2 => {
+                                    vec![*hand.0, *hand.1, *swappable_card, *hand.3, *hand.4]
+                                }
+                                3 => {
+                                    vec![*hand.0, *hand.1, *hand.2, *swappable_card, *hand.4]
+                                }
+                                _ => {
+                                    vec![*hand.0, *hand.1, *hand.2, *hand.3, *swappable_card]
+                                }
                             };
-                                
+
                             straights.push(vec_hand);
                         }
                     }
@@ -236,15 +244,15 @@ pub fn get_flushes(hand: &[Card]) -> Vec<Vec<Card>> {
 
     possible_flushes
 }
-pub fn get_combos(hand: &[Card]) -> Vec<Vec<Card>>{
+pub fn get_combos(hand: &[Card]) -> Vec<Vec<Card>> {
     // recursive solution?
     // find cards, pop from vec, and call itself?
-    
+
     // let mut handles: Vec<JoinHandle<Vec<Vec<Card>>>> = vec![];
     // let combo_fns: Vec<fn(&[Card]) -> Vec<Vec<Card>>> = vec![
     //     get_straights
     // ];
-    
+
     // for combo_func in combo_fns {
     //     let hand_copy = hand.to_vec();
     //     let handle = thread::spawn(move || {
