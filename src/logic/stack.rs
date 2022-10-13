@@ -115,35 +115,32 @@ mod tests {
 
         let doubles: Vec<Vec<card::Card>> = get_dupes(&cards, 2);
         for double in doubles.iter() {
-            if let Some(card_1) = double.get(0) {
-                if let Some(card_2) = double.get(1) {
-                    // Get indices of doubles.
-                    let double_idx: Vec<usize> = cards
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, card)| *card == card_1 || *card == card_2)
-                        .map(|(idx, _)| idx)
-                        .collect();
+            if let (Some(card_1), Some(card_2)) = (double.get(0), double.get(1)) {
+                // Get indices of doubles.
+                let double_idx: Vec<usize> = cards
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, card)| *card == card_1 || *card == card_2)
+                    .map(|(idx, _)| idx)
+                    .collect();
 
-                    // Get doubles.
-                    let double_hand = double_idx
-                        .iter()
-                        .map(|idx| cards.get(*idx).unwrap().clone())
-                        .collect_vec();
+                // Get doubles.
+                let double_hand = double_idx
+                    .iter()
+                    .map(|idx| cards.get(*idx).unwrap().clone())
+                    .collect_vec();
 
-                    // If addition to stack is valid.
-                    if new_stack.add(double_hand).is_ok() {
-                        // Remove added doubles from hand.
-                        double_idx.iter().for_each(|idx| {
-                            cards.remove(*idx);
-                        })
-                    }
+                // If addition to stack is valid.
+                if new_stack.add(double_hand).is_ok() {
+                    // Remove added doubles from hand.
+                    double_idx.iter().for_each(|idx| {
+                        cards.remove(*idx);
+                    })
                 }
             }
         }
-
-        println!("{:?}", new_stack);
     }
+
     #[test]
     fn test_add_combo() {
         let test_seq_file = "test/cards_dupes.json";

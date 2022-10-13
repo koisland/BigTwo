@@ -7,13 +7,13 @@ use crate::common::{card, deck};
 use crate::logic::combo;
 
 fn main() {
-    let cards_test_file = "test/cards_straights.json";
+    let cards_test_file = "test/cards_dupes.json";
     if Path::new(cards_test_file).exists() {
         let cards: Vec<card::Card> =
             serde_json::from_reader(&File::open(cards_test_file).unwrap()).unwrap();
 
-        combo::get_combos(&cards);
-        // println!("{:#?}", combos)
+        let combos = combo::get_combos(&cards);
+        println!("{:#?}", combos)
     } else {
         let shuffled_deck = deck::generate_deck();
         let players = 4;
