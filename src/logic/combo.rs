@@ -124,8 +124,8 @@ pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
     for card in hand_copy.iter() {
         // Check last card in intermediate straight.
         if let Some(last_card) = interm_contig_cards.last() {
-            let card_rank_value = card.rank.as_value();
-            let last_card_rank_value = last_card.rank.as_value();
+            let card_rank_value = card.rank as usize;
+            let last_card_rank_value = last_card.rank as usize;
 
             let rank_diff = card_rank_value as i8 - last_card_rank_value as i8;
 
@@ -270,6 +270,6 @@ pub fn get_combos(hand: &[Card]) -> Vec<Vec<Card>> {
     //     }
     // }
 
-    let full_houses = get_full_house(&hand[..]);
+    let full_houses = get_full_house(hand);
     full_houses
 }

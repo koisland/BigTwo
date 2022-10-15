@@ -13,7 +13,7 @@ impl Card {
     /// Assign value of card based on rank and suit.
     pub fn value(&self) -> f32 {
         // rank (ace: 12) + ((spade: 4) / 10.0) -> 12.4
-        self.rank.as_value() as f32 + (self.suit.as_value() as f32 / 10.0)
+        (self.rank as usize) as f32 + ((self.suit as usize) as f32 / 10.0)
     }
 }
 

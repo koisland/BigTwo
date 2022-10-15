@@ -1,0 +1,22 @@
+[
+    {
+      "suit": "Spade",
+      "rank": "Four"
+    },
+    {
+      "suit": "Diamond",
+      "rank": "Four"
+    },
+    {
+      "suit": "Diamond",
+      "rank": "Seven"
+    },
+    {
+      "suit": "Heart",
+      "rank": "Seven"
+    },
+    {
+      "suit": "Spade",
+      "rank": "Seven"
+    }
+  ]

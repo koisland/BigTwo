@@ -6,40 +6,22 @@ use strum_macros::EnumIter;
 /// Two is the highest value.
 #[derive(EnumIter, Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum Rank {
-    Two,
-    Ace,
-    King,
-    Queen,
-    Jack,
-    Ten,
-    Nine,
-    Eight,
-    Seven,
-    Six,
-    Five,
-    Four,
-    Three,
+    Two = 13,
+    Ace = 12,
+    King = 11,
+    Queen = 10,
+    Jack = 9,
+    Ten = 8,
+    Nine = 7,
+    Eight = 6,
+    Seven = 5,
+    Six = 4,
+    Five = 3,
+    Four = 2,
+    Three = 1,
 }
 
 impl Rank {
-    /// Convert card rank to value.
-    pub fn as_value(&self) -> usize {
-        match *self {
-            Rank::Two => 13,
-            Rank::Ace => 12,
-            Rank::King => 11,
-            Rank::Queen => 10,
-            Rank::Jack => 9,
-            Rank::Ten => 8,
-            Rank::Nine => 7,
-            Rank::Eight => 6,
-            Rank::Seven => 5,
-            Rank::Six => 4,
-            Rank::Five => 3,
-            Rank::Four => 2,
-            Rank::Three => 1,
-        }
-    }
     /// Convert card rank to string.
     pub fn as_str(&self) -> String {
         let str_res = match *self {
@@ -78,7 +60,7 @@ impl Ord for Rank {
 
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // Compare rank based on value.
-        self.as_value().partial_cmp(&other.as_value()).unwrap()
+        (*self as usize).partial_cmp(&(*other as usize)).unwrap()
     }
 }
 
@@ -104,7 +86,7 @@ impl PartialOrd for Rank {
     }
 
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.as_value().cmp(&other.as_value()))
+        Some((*self as usize).cmp(&(*other as usize)))
     }
 }
 
@@ -125,8 +107,8 @@ mod tests {
         let rank_ace = Rank::Ace;
         let rank_two = Rank::Two;
 
-        assert_eq!(rank_ace.as_value(), 12);
-        assert_eq!(rank_two.as_value(), 13);
+        assert_eq!(rank_ace as usize, 12);
+        assert_eq!(rank_two as usize, 13);
     }
 
     #[test]

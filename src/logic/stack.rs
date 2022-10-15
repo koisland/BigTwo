@@ -1,9 +1,9 @@
-use crate::common::{card, hand::HandType};
+use crate::common::{card::Card, hand::HandType};
 use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct CardStack {
-    stack: Vec<Vec<card::Card>>,
+    stack: Vec<Vec<Card>>,
     kind: HandType,
     level: usize,
 }
@@ -17,7 +17,7 @@ impl CardStack {
         }
     }
 
-    pub fn add(&mut self, hand: Vec<card::Card>) -> Result<&CardStack, &'static str> {
+    pub fn add(&mut self, hand: Vec<Card>) -> Result<&CardStack, &'static str> {
         let hand_type: HandType = match hand.len() {
             1 => HandType::Single,
             2 => HandType::Double,
@@ -85,7 +85,7 @@ mod tests {
     fn test_add_single_to_stack() {
         let test_seq_file = "test/test_add_seq.json";
         let mut new_stack = CardStack::new();
-        let cards: Vec<card::Card> =
+        let cards: Vec<Card> =
             serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
 
         for card in cards.into_iter() {
@@ -102,10 +102,10 @@ mod tests {
     fn test_add_double_to_stack() {
         let test_seq_file = "test/test_add_seq.json";
         let mut new_stack = CardStack::new();
-        let mut cards: Vec<card::Card> =
+        let mut cards: Vec<Card> =
             serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
 
-        let doubles: Vec<Vec<card::Card>> = get_dupes(&cards, 2);
+        let doubles: Vec<Vec<Card>> = get_dupes(&cards, 2);
         for double in doubles.iter() {
             if let (Some(card_1), Some(card_2)) = (double.get(0), double.get(1)) {
                 // Get indices of doubles.
@@ -137,7 +137,7 @@ mod tests {
     fn test_add_combo() {
         let test_seq_file = "test/cards_dupes.json";
         let mut new_stack = CardStack::new();
-        let mut cards: Vec<card::Card> =
+        let mut cards: Vec<Card> =
             serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
 
         let combos = get_combos(&cards);
