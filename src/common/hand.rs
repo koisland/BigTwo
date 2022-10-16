@@ -30,22 +30,22 @@ pub enum ComboType {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Hand {
-    cards: Vec<Card>,
-    kind: HandType,
-    combo: ComboType,
+    pub cards: Vec<Card>,
+    pub kind: HandType,
+    pub combo: ComboType,
 }
 
-trait Gauge {
+pub trait Gauge {
     fn strength(&self) -> Result<f32, &'static str>;
 }
 
-trait Parse {
+pub trait Parse {
     fn get_cards(&self, filters: &[CardFilter]) -> Option<Vec<Card>>;
     fn ranks(&self, opt_cards: Option<&[Card]>) -> HashMap<Rank, usize>;
     fn suits(&self, opt_cards: Option<&[Card]>) -> HashMap<Suit, usize>;
 }
 
-trait Validate {
+pub trait Validate {
     fn is_valid(hand: &[Card]) -> Result<(HandType, ComboType), &'static str>;
     fn is_combo_type(hand: &[Card]) -> ComboType;
     fn is_flush(hand: &[Card]) -> bool;

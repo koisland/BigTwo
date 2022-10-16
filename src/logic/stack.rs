@@ -1,11 +1,14 @@
-use crate::common::{card::Card, hand::HandType};
+use crate::common::{
+    card::Card,
+    hand::{Gauge, Hand, HandType},
+};
+
 use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct CardStack {
-    stack: Vec<Vec<Card>>,
+    stack: Vec<Hand>,
     kind: HandType,
-    level: usize,
 }
 
 impl CardStack {
@@ -13,61 +16,44 @@ impl CardStack {
         CardStack {
             stack: Vec::new(),
             kind: HandType::None,
-            level: 0,
         }
     }
 
-    pub fn add(&mut self, hand: Vec<Card>) -> Result<&CardStack, &'static str> {
-        let hand_type: HandType = match hand.len() {
-            1 => HandType::Single,
-            2 => HandType::Double,
-            5 => HandType::Combo,
-            _ => return Err("Invalid stack type."),
-        };
+    pub fn add(&mut self, hand: &[Card]) -> Result<&CardStack, &'static str> {
+        let hand_res = Hand::new(hand);
 
-        if self.kind != hand_type {
-            return Err("Current stack type doesn' match previous stack type.");
-        }
+        if let Ok(new_hand) = hand_res {
+            // Check that added hand is the same as previous hand kind.
+            if self.kind != HandType::None && self.kind != new_hand.kind {
+                return Err("Current stack kind doesn't match previous stack kind.");
+            }
 
-        self.kind = hand_type;
+            // Set the stack kind based on new hand added.
+            self.kind = new_hand.kind.clone();
 
-        // Check that addition to stack is valid.
-        match self.kind {
-            HandType::Single => {
-                if let Some(last_hand) = self.stack.last() {
-                    // If a card exists on stack...
-                    // Otherwise, ignore.
-                    if let Some(last_card) = last_hand.last() {
-                        // Check current card.
-                        let curr_card = &hand[0];
-                        if curr_card.value() <= last_card.value() {
-                            return Err("Current card is less than last card in stack.");
+            // Check that hand beats previously based hand.
+            if let Some(previous_hand) = self.stack.last() {
+                match self.kind {
+                    HandType::Single | HandType::Double | HandType::Combo => {
+                        if new_hand.strength() < previous_hand.strength() {
+                            return Err("Previous hand is stronger than added hand.");
                         }
                     }
+                    _ => return Err("Invalid stack kind."),
                 }
             }
-            HandType::Double => {
-                if let Some(last_hand) = self.stack.last() {
-                    // Calculate sum of value from doubles.
-                    let curr_double_value: f32 = hand.iter().map(|card| card.value()).sum();
-                    let last_double_value: f32 = last_hand.iter().map(|card| card.value()).sum();
+            // Add hand to stack once validated.
+            self.stack.push(new_hand);
 
-                    if curr_double_value <= last_double_value {
-                        return Err("Current double is less than last double.");
-                    }
-                }
-            }
-            HandType::Combo => todo!(),
-            _ => todo!(),
+            Ok(self)
+        } else {
+            Err(hand_res.unwrap_err())
         }
-
-        self.level += 1;
-        self.stack.push(hand);
-
-        Ok(self)
     }
 
-    pub fn clear(self) -> CardStack {
+    pub fn clear(&mut self) -> &CardStack {
+        self.stack.clear();
+        self.kind = HandType::None;
         self
     }
 }
@@ -89,10 +75,7 @@ mod tests {
             serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
 
         for card in cards.into_iter() {
-            let hand = vec![card];
-
-            // println!("Current hand {:?}", &hand);
-            if new_stack.add(hand).is_ok() {
+            if new_stack.add(&[card]).is_ok() {
                 // println!("{:?}", new_stack)
             }
         }
@@ -102,32 +85,15 @@ mod tests {
     fn test_add_double_to_stack() {
         let test_seq_file = "test/test_add_seq.json";
         let mut new_stack = CardStack::new();
-        let mut cards: Vec<Card> =
+        let cards: Vec<Card> =
             serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
 
-        let doubles: Vec<Vec<Card>> = get_dupes(&cards, 2);
-        for double in doubles.iter() {
-            if let (Some(card_1), Some(card_2)) = (double.get(0), double.get(1)) {
-                // Get indices of doubles.
-                let double_idx: Vec<usize> = cards
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, card)| *card == card_1 || *card == card_2)
-                    .map(|(idx, _)| idx)
-                    .collect();
-
-                // Get doubles.
-                let double_hand = double_idx
-                    .iter()
-                    .map(|idx| cards.get(*idx).unwrap().clone())
-                    .collect_vec();
-
-                // If addition to stack is valid.
-                if new_stack.add(double_hand).is_ok() {
-                    // Remove added doubles from hand.
-                    double_idx.iter().for_each(|idx| {
-                        cards.remove(*idx);
-                    })
+        if let Some(doubles) = get_dupes(&cards, 2) {
+            for double in doubles.iter() {
+                if let (Some(card_1), Some(card_2)) = (double.get(0), double.get(1)) {
+                    if new_stack.add(&[*card_1, *card_2]).is_ok() {
+                        // println!("{:?}", new_stack)
+                    }
                 }
             }
         }

@@ -1,11 +1,13 @@
 use crate::common::{card::Card, suit::Suit};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
 use strum::IntoEnumIterator;
 
-type Hand<'a> = (&'a Card, &'a Card, &'a Card, &'a Card, &'a Card);
+type TupleHand<'a> = (&'a Card, &'a Card, &'a Card, &'a Card, &'a Card);
+type PossibleCombos = Option<Vec<Vec<Card>>>;
 
-pub fn get_dupes(hand: &[Card], size: usize) -> Vec<Vec<Card>> {
+pub fn get_dupes(hand: &[Card], size: usize) -> PossibleCombos {
     // Sort hand before finding duplicates.
     let mut hand_copy = hand.to_vec();
     hand_copy.sort();
@@ -37,82 +39,103 @@ pub fn get_dupes(hand: &[Card], size: usize) -> Vec<Vec<Card>> {
     let mut dupe_combs: Vec<Vec<Card>> = vec![];
     for dupe in duplicates {
         for dupe_comb in dupe.iter().combinations(size) {
-            let dupe_comb_copy = dupe_comb.iter().map(|card| *&(*card).clone()).collect_vec();
+            let dupe_comb_copy = dupe_comb.into_iter().copied().collect_vec();
             dupe_combs.push(dupe_comb_copy);
         }
     }
-    dupe_combs
+    if dupe_combs.is_empty() {
+        None
+    } else {
+        Some(dupe_combs)
+    }
 }
 
-pub fn get_bombs(hand: &[Card]) -> Vec<Vec<Card>> {
+pub fn get_bombs(hand: &[Card]) -> PossibleCombos {
     let hand_copy = hand.to_vec();
 
     let mut bombs: Vec<Vec<Card>> = vec![];
 
-    let quads = get_dupes(&hand_copy[..], 4);
+    if let Some(quads) = get_dupes(&hand_copy[..], 4) {
+        // Get all quad card ranks.
+        let quad_ranks = quads
+            .iter()
+            .map(|quad| quad.first().map(|card| card.rank).unwrap())
+            .collect_vec();
 
-    // Get all quad card ranks.
-    let quad_ranks = quads
-        .iter()
-        .map(|quad| quad.first().map(|card| card.rank).unwrap())
-        .collect_vec();
+        if !quads.is_empty() {
+            for quad in quads {
+                let quad_comb: Vec<Vec<Card>> = hand_copy
+                    .iter()
+                    .filter_map(|card| {
+                        if !quad_ranks.contains(&card.rank) {
+                            let mut quad_copy = quad.clone();
+                            quad_copy.push(*card);
+                            Some(quad_copy)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect_vec();
 
-    if !quads.is_empty() {
-        for quad in quads {
-            let quad_comb: Vec<Vec<Card>> = hand_copy
+                bombs.extend(quad_comb);
+            }
+        }
+
+        Some(bombs)
+    } else {
+        None
+    }
+}
+
+pub fn get_full_houses(hand: &[Card]) -> PossibleCombos {
+    let hand_copy = hand.to_vec();
+
+    let mut full_houses: Vec<Vec<Card>> = vec![];
+
+    if let Some(triples) = get_dupes(&hand_copy[..], 3) {
+        // Store triple cards to avoid using them.
+        let triple_cards = triples.iter().flatten().collect_vec();
+        for triple in triples.iter() {
+            let available_cards = hand_copy
                 .iter()
                 .filter_map(|card| {
-                    if !quad_ranks.contains(&card.rank) {
-                        let mut quad_copy = quad.clone();
-                        quad_copy.push(*card);
-                        Some(quad_copy)
+                    // Don't allow cards that are used for triples.
+                    if !triple_cards.contains(&card) {
+                        Some(*card)
                     } else {
                         None
                     }
                 })
                 .collect_vec();
 
-            bombs.extend(quad_comb);
-        }
-    }
-
-    bombs
-}
-
-pub fn get_full_house(hand: &[Card]) -> Vec<Vec<Card>> {
-    let hand_copy = hand.to_vec();
-
-    let mut full_houses: Vec<Vec<Card>> = vec![];
-
-    let triples = get_dupes(&hand_copy[..], 3);
-    // Store triple cards to avoid using them.
-    let triple_cards = triples.iter().flatten().collect_vec();
-    for triple in triples.iter() {
-        let available_cards = hand_copy
-            .iter()
-            .filter_map(|card| {
-                // Don't allow cards that are used for triples.
-                if !triple_cards.contains(&card) {
-                    Some(*card)
-                } else {
-                    None
+            if let Some(doubles) = get_dupes(&available_cards[..], 2) {
+                for double in doubles.iter() {
+                    let double_clone = double.clone();
+                    let mut full_house = triple.clone();
+                    // Merge triple and double to make full house.
+                    // Add it to full houses.
+                    full_house.extend(double_clone);
+                    full_houses.push(full_house)
                 }
-            })
-            .collect_vec();
-        let doubles = get_dupes(&available_cards[..], 2);
-        for double in doubles.iter() {
-            let double_clone = double.clone();
-            let mut full_house = triple.clone();
-            // Merge triple and double to make full house.
-            // Add it to full houses.
-            full_house.extend(double_clone);
-            full_houses.push(full_house)
+            } else {
+                // If no doubles with triple, continue.
+                continue;
+            }
         }
+
+        // If no full houses, return None.
+        if full_houses.is_empty() {
+            None
+        } else {
+            Some(full_houses)
+        }
+    } else {
+        // If no triples, return None.
+        None
     }
-    full_houses
 }
 
-pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
+pub fn get_straights(hand: &[Card]) -> PossibleCombos {
     let mut hand_copy = hand.to_vec();
     hand_copy.sort();
 
@@ -162,12 +185,12 @@ pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
 
         // If don't contain duplicates.
         if !contains_dupe {
-            // Hand is valid.
+            // TupleHand is valid.
             if contig_seq.len() == 5 {
                 straights.push(contig_seq.clone());
             } else {
                 // Use tuple windows to get contig window of 5-element tuple.
-                for hand in contig_seq.iter().tuple_windows::<Hand>() {
+                for hand in contig_seq.iter().tuple_windows::<TupleHand>() {
                     let vec_hand: Vec<Card> = vec![*hand.0, *hand.1, *hand.2, *hand.3, *hand.4];
                     straights.push(vec_hand);
                 }
@@ -197,7 +220,7 @@ pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
                         straights.push(modified_contig_seq);
                     } else {
                         for (idx_diff, hand) in
-                            contig_seq.iter().tuple_windows::<Hand>().enumerate()
+                            contig_seq.iter().tuple_windows::<TupleHand>().enumerate()
                         {
                             let vec_hand: Vec<Card> = match i - idx_diff {
                                 0 => {
@@ -224,10 +247,14 @@ pub fn get_straights(hand: &[Card]) -> Vec<Vec<Card>> {
             }
         }
     }
-    straights
+    if straights.is_empty() {
+        None
+    } else {
+        Some(straights)
+    }
 }
 
-pub fn get_flushes(hand: &[Card]) -> Vec<Vec<Card>> {
+pub fn get_flushes(hand: &[Card]) -> PossibleCombos {
     let mut hand_copy = hand.to_vec();
     hand_copy.sort();
 
@@ -237,38 +264,48 @@ pub fn get_flushes(hand: &[Card]) -> Vec<Vec<Card>> {
             .iter()
             .filter_map(|card| if card.suit == suit { Some(*card) } else { None })
             .collect_vec();
+        // If len of suit_cards greater than or equal to 5, generate all possible permutations.
         if suit_cards.len() >= 5 {
-            possible_flushes.push(suit_cards);
+            for perm in suit_cards.iter().permutations(5) {
+                let perm_copy = perm.into_iter().copied().collect_vec();
+                possible_flushes.push(perm_copy);
+            }
+        }
+    }
+    if possible_flushes.is_empty() {
+        None
+    } else {
+        Some(possible_flushes)
+    }
+}
+
+/// Generate all possible combos
+pub fn get_combos(hand: &[Card]) -> Option<HashMap<&str, PossibleCombos>> {
+    let mut handles: Vec<JoinHandle<PossibleCombos>> = vec![];
+
+    // Define combo names and combo functions.
+    let combo_fn_names = vec!["straights", "full_houses", "bombs", "flushes"];
+    let combo_fns: Vec<fn(&[Card]) -> PossibleCombos> =
+        vec![get_straights, get_full_houses, get_bombs, get_flushes];
+
+    for combo_func in combo_fns {
+        let hand_copy = hand.to_vec();
+        let handle = thread::spawn(move || combo_func(&hand_copy[..]));
+        handles.push(handle);
+    }
+
+    // Create combos hashmap to store possible combos
+    let mut combos: HashMap<&str, PossibleCombos> = HashMap::new();
+    for (handle, combo_name) in handles.into_iter().zip(&combo_fn_names) {
+        if let Ok(all_combos) = handle.join() {
+            combos.insert(combo_name, all_combos);
         }
     }
 
-    possible_flushes
-}
-pub fn get_combos(hand: &[Card]) -> Vec<Vec<Card>> {
-    // recursive solution?
-    // find cards, pop from vec, and call itself?
-
-    // let mut handles: Vec<JoinHandle<Vec<Vec<Card>>>> = vec![];
-    // let combo_fns: Vec<fn(&[Card]) -> Vec<Vec<Card>>> = vec![
-    //     get_straights
-    // ];
-
-    // for combo_func in combo_fns {
-    //     let hand_copy = hand.to_vec();
-    //     let handle = thread::spawn(move || {
-    //         let possible_combo = combo_func(&hand_copy[..]);
-    //         possible_combo
-    //     });
-    //     handles.push(handle);
-    // }
-
-    // for handle in handles {
-    //     if let Ok(all_combos) = handle.join() {
-    //         println!("{:?}", all_combos)
-    //     } else {
-    //         println!("{}", "No combo. Looking for doubles.")
-    //     }
-    // }
-
-    get_full_house(hand)
+    // If any combo has a possible combo, return combos.
+    if combos.iter().any(|(_, combo)| combo.is_some()) {
+        Some(combos)
+    } else {
+        None
+    }
 }
