@@ -1,8 +1,12 @@
+use crate::common::{
+    card::{Card, CardFilter},
+    rank::Rank,
+    suit::Suit,
+};
 use itertools::Itertools;
-use std::collections::HashMap;
-use std::f32;
 use std::cmp::Ordering::{Equal, Greater, Less};
-use crate::common::{card::{Card, CardFilter}, rank::Rank, suit::Suit};
+use std::collections::{hash_map::Entry::Vacant, HashMap};
+use std::f32;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum HandType {
@@ -11,7 +15,6 @@ pub enum HandType {
     Double = 2,
     Combo = 5,
 }
-
 
 /// Combo types reference: https://www.pagat.com/climbing/bigtwo.html
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -72,83 +75,83 @@ impl Hand {
 impl Parse for Hand {
     fn get_cards(&self, filters: &[CardFilter]) -> Option<Vec<Card>> {
         let mut filtered_cards = Some(self.cards.clone());
-        
+
         for filter_opt in filters.iter() {
             // Exit if no cards left.
-            if filtered_cards.is_none() { return None }
+            filtered_cards.as_ref()?;
 
             // Update filtered cards on iteration of filters.
             filtered_cards = match filter_opt {
-                CardFilter::Strongest => {
-                    if let Some(strongest_card) = filtered_cards.unwrap().into_iter().reduce(|c1, c2| c1.max(c2)) {
-                        Some(vec![strongest_card])
-                    } else {
-                        None
-                    }
-                },
-                CardFilter::Weakest => {
-                    if let Some(weakest_card) = filtered_cards.unwrap().into_iter().reduce(|c1, c2| c1.min(c2)) {
-                        Some(vec![weakest_card])
-                    } else {
-                        None
-                    }
-                },
+                CardFilter::Strongest => filtered_cards
+                    .unwrap()
+                    .into_iter()
+                    .reduce(|c1, c2| c1.max(c2))
+                    .map(|strongest_card| vec![strongest_card]),
+                CardFilter::Weakest => filtered_cards
+                    .unwrap()
+                    .into_iter()
+                    .reduce(|c1, c2| c1.min(c2))
+                    .map(|weakest_card| vec![weakest_card]),
                 // TODO: Simplify and separate repeat code.
                 CardFilter::MostFrequentSuits => {
                     let remaining_cards = filtered_cards.unwrap();
                     let suit_cnts = self.suits(Some(&remaining_cards));
                     let most_freq_suit = suit_cnts
                         .into_iter()
-                        .max_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(&rank_2_cnt));
+                        .max_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(rank_2_cnt));
                     if let Some((most_freq_suit, _)) = most_freq_suit {
                         let most_freq_suit_cards = remaining_cards
                             .into_iter()
-                            .filter(|card| card.suit == most_freq_suit).collect_vec();
+                            .filter(|card| card.suit == most_freq_suit)
+                            .collect_vec();
                         Some(most_freq_suit_cards)
                     } else {
                         None
                     }
-                },
+                }
                 CardFilter::LeastFrequentSuits => {
                     let remaining_cards = filtered_cards.unwrap();
                     let suit_cnts = self.suits(Some(&remaining_cards));
                     let least_freq_suit = suit_cnts
                         .into_iter()
-                        .min_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(&rank_2_cnt));
+                        .min_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(rank_2_cnt));
                     if let Some((least_freq_suit, _)) = least_freq_suit {
                         let least_freq_suit_cards = remaining_cards
                             .into_iter()
-                            .filter(|card| card.suit == least_freq_suit).collect_vec();
+                            .filter(|card| card.suit == least_freq_suit)
+                            .collect_vec();
                         Some(least_freq_suit_cards)
                     } else {
                         None
                     }
-                },
+                }
                 CardFilter::MostFrequentRanks => {
                     let remaining_cards = filtered_cards.unwrap();
                     let rank_cnts = self.ranks(Some(&remaining_cards));
                     let most_freq_rank = rank_cnts
                         .into_iter()
-                        .max_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(&rank_2_cnt));
+                        .max_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(rank_2_cnt));
                     if let Some((most_freq_rank, _)) = most_freq_rank {
                         let most_freq_rank_cards = remaining_cards
                             .into_iter()
-                            .filter(|card| card.rank == most_freq_rank).collect_vec();
+                            .filter(|card| card.rank == most_freq_rank)
+                            .collect_vec();
                         Some(most_freq_rank_cards)
                     } else {
                         None
                     }
-                },
+                }
                 CardFilter::LeastFrequentRanks => {
                     let remaining_cards = filtered_cards.unwrap();
                     let rank_cnts = self.ranks(Some(&remaining_cards));
                     let least_freq_rank = rank_cnts
                         .into_iter()
-                        .min_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(&rank_2_cnt));
+                        .min_by(|(_, rank_1_cnt), (_, rank_2_cnt)| rank_1_cnt.cmp(rank_2_cnt));
                     if let Some((least_freq_rank, _)) = least_freq_rank {
                         let least_freq_rank_cards = remaining_cards
                             .into_iter()
-                            .filter(|card| card.rank == least_freq_rank).collect_vec();
+                            .filter(|card| card.rank == least_freq_rank)
+                            .collect_vec();
                         Some(least_freq_rank_cards)
                     } else {
                         None
@@ -164,13 +167,10 @@ impl Parse for Hand {
         // If no opt_cards provided, use instances cards.
         let cards = opt_cards.unwrap_or(&self.cards);
         for card in cards.iter() {
-            
-            if !rank_cnts.contains_key(&card.rank) {
-                rank_cnts.insert(card.rank, 0);
-            } else {
-                if let Some(rank_cnt) = rank_cnts.get_mut(&card.rank) {
-                    *rank_cnt += 1
-                }
+            if let Vacant(rank_cnt_entry) = rank_cnts.entry(card.rank) {
+                rank_cnt_entry.insert(0);
+            } else if let Some(rank_cnt) = rank_cnts.get_mut(&card.rank) {
+                *rank_cnt += 1
             }
         }
         rank_cnts
@@ -181,13 +181,10 @@ impl Parse for Hand {
         // If no opt_cards provided, use instances cards.
         let cards = opt_cards.unwrap_or(&self.cards);
         for card in cards.iter() {
-            
-            if !suit_cnts.contains_key(&card.suit) {
-                suit_cnts.insert(card.suit, 0);
-            } else {
-                if let Some(suit_cnt) = suit_cnts.get_mut(&card.suit) {
-                    *suit_cnt += 1
-                }
+            if let Vacant(suit_cnt_entry) = suit_cnts.entry(card.suit) {
+                suit_cnt_entry.insert(0);
+            } else if let Some(suit_cnt) = suit_cnts.get_mut(&card.suit) {
+                *suit_cnt += 1
             }
         }
         suit_cnts
@@ -197,19 +194,14 @@ impl Parse for Hand {
 impl Gauge for Hand {
     fn strength(&self) -> Result<f32, &'static str> {
         // Define filters for self.get_cards
-        let freq_strongest_filter = Vec::from([
-            CardFilter::MostFrequentRanks, 
-            CardFilter::Strongest
-        ]);
+        let freq_strongest_filter =
+            Vec::from([CardFilter::MostFrequentRanks, CardFilter::Strongest]);
         let strongest_filter = Vec::from([CardFilter::Strongest]);
 
         let hand_strength_res = match self.kind {
             HandType::Single => {
                 // Return card's base value.
-                return Ok(self.cards
-                    .first()
-                    .and_then(|card| Some(card.value()))
-                    .unwrap());
+                return Ok(self.cards.first().map(|card| card.value()).unwrap());
             }
             HandType::Double => {
                 if let Some(strongest_card) = self.get_cards(&strongest_filter) {
@@ -222,7 +214,7 @@ impl Gauge for Hand {
             HandType::Combo => {
                 // Lowest card value is 1.1 (3 of Diamonds), highest is 13.4 (2 of Spades)
                 let combo_multiplier_res = match self.combo {
-                    ComboType::Straight => { 
+                    ComboType::Straight => {
                         if let Some(strongest_card) = self.get_cards(&strongest_filter) {
                             Ok(strongest_card.last().unwrap().value().powf(1.0))
                         } else {
@@ -235,7 +227,7 @@ impl Gauge for Hand {
                         } else {
                             Err("Error: Hand is empty or cannot get strongest card from flush.")
                         }
-                    },
+                    }
                     ComboType::FullHouse => {
                         if let Some(triple) = self.get_cards(&freq_strongest_filter) {
                             if let Some(strongest_card) = triple.iter().max() {
@@ -246,7 +238,7 @@ impl Gauge for Hand {
                         } else {
                             Err("Error: No triples found in full house.")
                         }
-                    },
+                    }
                     ComboType::Bomb => {
                         if let Some(quad) = self.get_cards(&freq_strongest_filter) {
                             if let Some(strongest_card) = quad.iter().max() {
@@ -257,21 +249,21 @@ impl Gauge for Hand {
                         } else {
                             Err("Error: No quads found in bomb.")
                         }
-                    },
+                    }
                     ComboType::StraightFlush => {
                         if let Some(strongest_card) = self.get_cards(&strongest_filter) {
                             Ok(strongest_card.last().unwrap().value().powf(5.0))
                         } else {
                             Err("Error: Hand is empty or cannot get strongest card from straight flush.")
                         }
-                    },
+                    }
                     ComboType::RoyalFlush => {
                         if let Some(strongest_card) = self.get_cards(&strongest_filter) {
                             Ok(strongest_card.last().unwrap().value().powf(6.0))
                         } else {
                             Err("Error: Hand is empty or cannot get strongest card from royal flush.")
                         }
-                    },
+                    }
                     _ => Err("Error: Invalid combo type."),
                 };
 
@@ -318,7 +310,6 @@ impl Ord for Hand {
         } else {
             panic!("Error: Unable to calculate hand strengths.")
         }
-        
     }
 }
 

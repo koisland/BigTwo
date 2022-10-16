@@ -11,7 +11,7 @@ pub enum CardFilter {
     MostFrequentRanks,
     LeastFrequentRanks,
     MostFrequentSuits,
-    LeastFrequentSuits
+    LeastFrequentSuits,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash)]

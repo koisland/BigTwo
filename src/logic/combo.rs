@@ -37,7 +37,7 @@ pub fn get_dupes(hand: &[Card], size: usize) -> Vec<Vec<Card>> {
     let mut dupe_combs: Vec<Vec<Card>> = vec![];
     for dupe in duplicates {
         for dupe_comb in dupe.iter().combinations(size) {
-            let dupe_comb_copy = dupe_comb.iter().map(|card| *card.clone()).collect_vec();
+            let dupe_comb_copy = dupe_comb.iter().map(|card| *&(*card).clone()).collect_vec();
             dupe_combs.push(dupe_comb_copy);
         }
     }
@@ -54,17 +54,17 @@ pub fn get_bombs(hand: &[Card]) -> Vec<Vec<Card>> {
     // Get all quad card ranks.
     let quad_ranks = quads
         .iter()
-        .map(|quad| quad.first().and_then(|card| Some(card.rank)).unwrap())
+        .map(|quad| quad.first().map(|card| card.rank).unwrap())
         .collect_vec();
 
-    if quads.len() != 0 {
+    if !quads.is_empty() {
         for quad in quads {
             let quad_comb: Vec<Vec<Card>> = hand_copy
                 .iter()
                 .filter_map(|card| {
                     if !quad_ranks.contains(&card.rank) {
                         let mut quad_copy = quad.clone();
-                        quad_copy.push(card.clone());
+                        quad_copy.push(*card);
                         Some(quad_copy)
                     } else {
                         None
@@ -93,7 +93,7 @@ pub fn get_full_house(hand: &[Card]) -> Vec<Vec<Card>> {
             .filter_map(|card| {
                 // Don't allow cards that are used for triples.
                 if !triple_cards.contains(&card) {
-                    Some(card.clone())
+                    Some(*card)
                 } else {
                     None
                 }
@@ -270,6 +270,5 @@ pub fn get_combos(hand: &[Card]) -> Vec<Vec<Card>> {
     //     }
     // }
 
-    let full_houses = get_full_house(hand);
-    full_houses
+    get_full_house(hand)
 }
