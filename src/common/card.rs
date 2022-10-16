@@ -3,6 +3,17 @@ use crate::common::{rank, suit};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering::{Equal, Greater, Less};
 
+/// Enum for function defintions.
+#[derive(Debug, PartialEq, Eq)]
+pub enum CardFilter {
+    Strongest,
+    Weakest,
+    MostFrequentRanks,
+    LeastFrequentRanks,
+    MostFrequentSuits,
+    LeastFrequentSuits
+}
+
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct Card {
     pub rank: rank::Rank,
