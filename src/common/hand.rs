@@ -450,20 +450,21 @@ impl Validate for Hand {
     }
 }
 
-mod tests {
+#[cfg(test)]
+pub mod tests {
     use super::{ComboType, Gauge, Hand, Parse, Validate};
     use crate::common::card::Card;
     use serde_json::from_reader;
     use std::fs::File;
 
     #[derive(Debug, PartialEq, Eq)]
-    enum RelativeStrength {
+    pub enum RelativeStrength {
         Normal,
         Weaker,
         Stronger,
     }
 
-    fn get_test_hand(
+    pub fn get_test_hand(
         combo_type: ComboType,
         rel_strength: RelativeStrength,
     ) -> Result<Hand, &'static str> {

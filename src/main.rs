@@ -3,16 +3,16 @@ use serde_json::to_writer_pretty;
 use std::fs::File;
 use std::path::Path;
 
-use crate::common::{card, deck};
-use crate::logic::combo;
+use crate::common::{card::Card, deck};
+use crate::logic::combo::get_combos;
 
 fn main() {
     let cards_test_file = "test/cards_dupes.json";
     if Path::new(cards_test_file).exists() {
-        let cards: Vec<card::Card> =
-            serde_json::from_reader(&File::open(cards_test_file).unwrap()).unwrap();
+        let cards: Vec<Card> =
+            serde_json::from_reader(&std::fs::File::open(cards_test_file).unwrap()).unwrap();
 
-        let combos = combo::get_combos(&cards);
+        let combos = get_combos(&cards);
         println!("{:#?}", combos)
     } else {
         let shuffled_deck = deck::generate_deck();
@@ -21,9 +21,9 @@ fn main() {
 
         let card_chunks = shuffled_deck.into_iter().chunks(player_card_cnt);
 
-        let mut player_cards: Vec<Vec<card::Card>> = vec![];
+        let mut player_cards: Vec<Vec<Card>> = vec![];
         for cards in &card_chunks {
-            let player_n_cards = cards.collect::<Vec<card::Card>>();
+            let player_n_cards = cards.collect::<Vec<Card>>();
             player_cards.push(player_n_cards);
         }
 

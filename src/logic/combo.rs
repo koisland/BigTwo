@@ -1,4 +1,4 @@
-use crate::common::{card::Card, suit::Suit};
+use crate::common::{card::Card, rank::Rank, suit::Suit};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -175,73 +175,76 @@ pub fn get_straights(hand: &[Card]) -> PossibleCombos {
     duplicate_cards.extend(interm_duplicates.clone());
 
     let mut straights: Vec<Vec<Card>> = vec![];
-    let duplicate_card_ranks = duplicate_cards.iter().map(|card| card.rank).collect_vec();
+    let duplicate_card_ranks: HashMap<Rank, Vec<&Card>> = duplicate_cards
+        .iter()
+        .map(|card| card.rank)
+        .unique()
+        .map(|rank| {
+            (
+                rank,
+                hand_copy
+                    .iter()
+                    .filter(|card| card.rank == rank)
+                    .collect_vec(),
+            )
+        })
+        .collect();
+    // println!("dupes: {:?}", duplicate_card_ranks);
 
     for contig_seq in contig_cards {
-        let contig_seq_ranks = contig_seq.iter().map(|card| card.rank).collect_vec();
-        let contains_dupe = contig_seq_ranks
+        let contains_dupe = contig_seq
             .iter()
-            .any(|rank| duplicate_card_ranks.contains(rank));
+            .map(|card| card.rank)
+            .any(|rank| duplicate_card_ranks.keys().contains(&rank));
+
+        // Store the indices of the contiguous sequence of cards that contain duplicate ranks.
+        let duplicate_card_idxs: HashMap<Rank, usize> = duplicate_card_ranks
+            .iter()
+            .filter_map(|(rank, _)| {
+                if let Some((idx, _)) = contig_seq
+                    .iter()
+                    .enumerate()
+                    .find(|(_, card)| card.rank == *rank)
+                {
+                    Some((*rank, idx))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // If don't contain duplicates.
         if !contains_dupe {
-            // TupleHand is valid.
+            // Hand is valid.
             if contig_seq.len() == 5 {
                 straights.push(contig_seq.clone());
             } else {
                 // Use tuple windows to get contig window of 5-element tuple.
                 for hand in contig_seq.iter().tuple_windows::<TupleHand>() {
-                    let vec_hand: Vec<Card> = vec![*hand.0, *hand.1, *hand.2, *hand.3, *hand.4];
-                    straights.push(vec_hand);
+                    let new_hand: Vec<Card> = vec![*hand.0, *hand.1, *hand.2, *hand.3, *hand.4];
+                    straights.push(new_hand);
                 }
             }
         } else {
-            for dupe_card in duplicate_cards.iter() {
-                if let Some((i, swappable_card)) = contig_seq
-                    .iter()
-                    .enumerate()
-                    .find(|(_, card)| card.rank == dupe_card.rank)
-                {
-                    if contig_seq.len() == 5 {
-                        // Push the already valid hand.
-                        straights.push(contig_seq.clone());
+            // Take multi cartesian product to get all possible duplicates to swap.
+            for swappable_cards in duplicate_card_ranks.values().multi_cartesian_product() {
+                let mut new_seq: Vec<Card> = contig_seq.clone();
 
-                        // Clone the modified version and remove the dupe card.
-                        let mut modified_contig_seq = contig_seq.clone();
-                        modified_contig_seq.remove(i);
+                for swap_card in swappable_cards {
+                    // Get the duplicate card idxs for this sequence to replace.
+                    if let Some(idx) = duplicate_card_idxs.get(&swap_card.rank) {
+                        new_seq.remove(*idx);
+                        new_seq.insert(*idx, **swap_card)
+                    }
+                }
 
-                        // Based on index, insert or push to account for modded index.
-                        match i {
-                            0 => modified_contig_seq.insert(0, *swappable_card),
-                            5 => modified_contig_seq.push(*swappable_card),
-                            _ => modified_contig_seq.insert(i + 1, *swappable_card),
-                        }
-                        // Add the modified sequence.
-                        straights.push(modified_contig_seq);
-                    } else {
-                        for (idx_diff, hand) in
-                            contig_seq.iter().tuple_windows::<TupleHand>().enumerate()
-                        {
-                            let vec_hand: Vec<Card> = match i - idx_diff {
-                                0 => {
-                                    vec![*swappable_card, *hand.1, *hand.2, *hand.3, *hand.4]
-                                }
-                                1 => {
-                                    vec![*hand.0, *swappable_card, *hand.2, *hand.3, *hand.4]
-                                }
-                                2 => {
-                                    vec![*hand.0, *hand.1, *swappable_card, *hand.3, *hand.4]
-                                }
-                                3 => {
-                                    vec![*hand.0, *hand.1, *hand.2, *swappable_card, *hand.4]
-                                }
-                                _ => {
-                                    vec![*hand.0, *hand.1, *hand.2, *hand.3, *swappable_card]
-                                }
-                            };
-
-                            straights.push(vec_hand);
-                        }
+                if new_seq.len() == 5 {
+                    straights.push(new_seq);
+                } else {
+                    // Use tuple windows to get contig window of 5-element tuple.
+                    for hand in new_seq.iter().tuple_windows::<TupleHand>() {
+                        let new_hand: Vec<Card> = vec![*hand.0, *hand.1, *hand.2, *hand.3, *hand.4];
+                        straights.push(new_hand);
                     }
                 }
             }
@@ -266,7 +269,7 @@ pub fn get_flushes(hand: &[Card]) -> PossibleCombos {
             .collect_vec();
         // If len of suit_cards greater than or equal to 5, generate all possible permutations.
         if suit_cards.len() >= 5 {
-            for perm in suit_cards.iter().permutations(5) {
+            for perm in suit_cards.iter().combinations(5) {
                 let perm_copy = perm.into_iter().copied().collect_vec();
                 possible_flushes.push(perm_copy);
             }
@@ -280,7 +283,7 @@ pub fn get_flushes(hand: &[Card]) -> PossibleCombos {
 }
 
 /// Generate all possible combos
-pub fn get_combos(hand: &[Card]) -> Option<HashMap<&str, PossibleCombos>> {
+pub fn get_combos(hand: &[Card]) -> Option<HashMap<&str, Vec<Vec<Card>>>> {
     let mut handles: Vec<JoinHandle<PossibleCombos>> = vec![];
 
     // Define combo names and combo functions.
@@ -290,22 +293,56 @@ pub fn get_combos(hand: &[Card]) -> Option<HashMap<&str, PossibleCombos>> {
 
     for combo_func in combo_fns {
         let hand_copy = hand.to_vec();
-        let handle = thread::spawn(move || combo_func(&hand_copy[..]));
+        let handle = thread::spawn(move || combo_func(&hand_copy));
         handles.push(handle);
     }
 
     // Create combos hashmap to store possible combos
-    let mut combos: HashMap<&str, PossibleCombos> = HashMap::new();
+    let mut combos: HashMap<&str, Vec<Vec<Card>>> = HashMap::new();
     for (handle, combo_name) in handles.into_iter().zip(&combo_fn_names) {
-        if let Ok(all_combos) = handle.join() {
-            combos.insert(combo_name, all_combos);
+        if let Ok(Some(specific_combo)) = handle.join() {
+            combos.insert(combo_name, specific_combo);
         }
     }
 
     // If any combo has a possible combo, return combos.
-    if combos.iter().any(|(_, combo)| combo.is_some()) {
+    if !combos.is_empty() {
         Some(combos)
     } else {
         None
+    }
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_combo() {
+        let test_seq_file = "test/cards_dupes.json";
+        let cards: Vec<Card> =
+            serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
+
+        if let Some(combos) = get_combos(&cards) {
+            if let Some(straights) = combos.get("straights") {
+                println!("Straights:\n{:?}", straights);
+                println!("Number of straights: {}\n", straights.len());
+                assert_eq!(straights.len(), 8)
+            };
+            if let Some(flushes) = combos.get("flushes") {
+                println!("Flushes:\n{:?}", flushes);
+                println!("Number of flushes: {}\n", flushes.len());
+                assert_eq!(flushes.len(), 1)
+            };
+            if let Some(bombs) = combos.get("bombs") {
+                println!("Bombs:\n{:?}", bombs);
+                println!("Number of bombs: {}\n", bombs.len());
+                assert_eq!(bombs.len(), 9)
+            };
+            if let Some(full_houses) = combos.get("full_houses") {
+                println!("Full Houses:\n{:?}", full_houses);
+                println!("Number of full houses: {}\n", full_houses.len());
+                assert_eq!(full_houses.len(), 5)
+            };
+        }
     }
 }
