@@ -1,5 +1,5 @@
 use crate::common::{
-    card::{Card, CardFilter},
+    card::Card,
     rank::Rank,
     suit::Suit,
 };
@@ -26,6 +26,17 @@ pub enum ComboType {
     Bomb,
     StraightFlush,
     RoyalFlush,
+}
+
+/// Enum for function defintions.
+#[derive(Debug, PartialEq, Eq)]
+pub enum CardFilter {
+    Strongest,
+    Weakest,
+    MostFrequentRanks,
+    LeastFrequentRanks,
+    MostFrequentSuits,
+    LeastFrequentSuits,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -351,7 +362,7 @@ impl Validate for Hand {
                 if is_double {
                     Ok((HandType::Double, ComboType::None))
                 } else {
-                    Err("Error: Not all cards in double are Normal.")
+                    Err("Error: Not all cards in double are equal rank.")
                 }
             }
             5 => {

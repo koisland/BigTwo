@@ -9,3 +9,16 @@ pub enum Suit {
     Club = 2,
     Diamond = 1,
 }
+
+impl Suit {
+    /// Convert card rank to string.
+    pub fn as_str(&self) -> String {
+        let str_res = match *self {
+            Suit::Spade => "♠",
+            Suit::Heart => "♥",
+            Suit::Club => "♣",
+            Suit::Diamond => "♦",
+        };
+        str_res.to_string()
+    }
+}

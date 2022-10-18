@@ -25,19 +25,19 @@ impl Rank {
     /// Convert card rank to string.
     pub fn as_str(&self) -> String {
         let str_res = match *self {
-            Rank::Two => "Two",
-            Rank::Ace => "Ace",
-            Rank::King => "King",
-            Rank::Queen => "Queen",
-            Rank::Jack => "Jack",
-            Rank::Ten => "Ten",
-            Rank::Nine => "Nine",
-            Rank::Eight => "Eight",
-            Rank::Seven => "Seven",
-            Rank::Six => "Six",
-            Rank::Five => "Five",
-            Rank::Four => "Four",
-            Rank::Three => "Three",
+            Rank::Two => "2",
+            Rank::Ace => "A",
+            Rank::King => "K",
+            Rank::Queen => "Q",
+            Rank::Jack => "J",
+            Rank::Ten => "10",
+            Rank::Nine => "9",
+            Rank::Eight => "8",
+            Rank::Seven => "7",
+            Rank::Six => "6",
+            Rank::Five => "5",
+            Rank::Four => "4",
+            Rank::Three => "3",
         };
         str_res.to_string()
     }

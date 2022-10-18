@@ -2,13 +2,12 @@ use crate::common::{
     card::Card,
     hand::{Gauge, Hand, HandType},
 };
-
 use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct CardStack {
-    stack: Vec<Hand>,
-    kind: HandType,
+    pub stack: Vec<Hand>,
+    pub kind: HandType,
 }
 
 impl CardStack {

@@ -1,23 +1,13 @@
-use crate::common::{rank, suit};
+use crate::common::{rank::Rank, suit::Suit};
 
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering::{Equal, Greater, Less};
+use std::{cmp::Ordering::{Equal, Greater, Less}, fmt::{Debug, self, Result}};
 
-/// Enum for function defintions.
-#[derive(Debug, PartialEq, Eq)]
-pub enum CardFilter {
-    Strongest,
-    Weakest,
-    MostFrequentRanks,
-    LeastFrequentRanks,
-    MostFrequentSuits,
-    LeastFrequentSuits,
-}
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct Card {
-    pub rank: rank::Rank,
-    pub suit: suit::Suit,
+    pub rank: Rank,
+    pub suit: Suit,
 }
 
 impl Card {
@@ -25,6 +15,12 @@ impl Card {
     pub fn value(&self) -> f32 {
         // rank (ace: 12) + ((spade: 4) / 10.0) -> 12.4
         (self.rank as usize) as f32 + ((self.suit as usize) as f32 / 10.0)
+    }
+}
+
+impl Debug for Card {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}{}]", self.suit.as_str(), self.rank.as_str())
     }
 }
 
@@ -78,18 +74,18 @@ impl PartialOrd for Card {
 #[cfg(test)]
 mod tests {
     use super::Card;
-    use crate::common::{rank, suit};
+    use crate::common::{rank::Rank, suit::Suit};
 
     #[test]
     fn test_single_card_cmp() {
         let card_1 = Card {
-            rank: rank::Rank::Ace,
-            suit: suit::Suit::Club,
+            rank: Rank::Ace,
+            suit: Suit::Club,
         };
 
         let card_2 = Card {
-            rank: rank::Rank::Ace,
-            suit: suit::Suit::Spade,
+            rank: Rank::Ace,
+            suit: Suit::Spade,
         };
 
         assert!(card_1.lt(&card_2))
