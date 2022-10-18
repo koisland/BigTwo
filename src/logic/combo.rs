@@ -7,6 +7,21 @@ use strum::IntoEnumIterator;
 type TupleHand<'a> = (&'a Card, &'a Card, &'a Card, &'a Card, &'a Card);
 type PossibleCombos = Option<Vec<Vec<Card>>>;
 
+/// Get all duplicate `Card` instances in a `hand` of some `size`.
+///
+/// ```
+/// use crate::common::{card::Card, rank::Rank, suit::Suit};
+///
+/// let card_1 = Card { rank: Rank::Ace, suit: Suit::Club };
+/// let card_2 = Card { rank: Rank::Ace, suit: Suit::Spade };
+/// let card_3 = Card { rank: Rank::Jack, suit: Suit::Club };
+///
+/// let hand = vec![card_1, card_2, card_3];
+/// if let Some(doubles) = get_dupes(&hand, 2) {
+///     println!("{:?}", doubles)
+/// }
+/// ```
+///
 pub fn get_dupes(hand: &[Card], size: usize) -> PossibleCombos {
     // Sort hand before finding duplicates.
     let mut hand_copy = hand.to_vec();

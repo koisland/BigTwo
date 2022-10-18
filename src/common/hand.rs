@@ -1,14 +1,10 @@
-use crate::common::{
-    card::Card,
-    rank::Rank,
-    suit::Suit,
-};
+use crate::common::{card::Card, player::Player, rank::Rank, suit::Suit};
 use itertools::Itertools;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::{hash_map::Entry::Vacant, HashMap};
 use std::f32;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum HandType {
     None = 0,
     Single = 1,
@@ -17,7 +13,7 @@ pub enum HandType {
 }
 
 /// Combo types reference: https://www.pagat.com/climbing/bigtwo.html
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ComboType {
     None,
     Straight,
@@ -29,7 +25,7 @@ pub enum ComboType {
 }
 
 /// Enum for function defintions.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CardFilter {
     Strongest,
     Weakest,
@@ -39,18 +35,23 @@ pub enum CardFilter {
     LeastFrequentSuits,
 }
 
+/// A group of `Card`s of some `kind`.
+///
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Hand {
     pub cards: Vec<Card>,
     pub kind: HandType,
     pub combo: ComboType,
+    pub player: usize,
 }
 
 pub trait Gauge {
+    /// Calculates the strength of a `Hand`.
     fn strength(&self) -> Result<f32, &'static str>;
 }
 
 pub trait Parse {
+    /// Retrives a set of `Card`s from `Hand` based on a series of `CardFilter` conditions.
     fn get_cards(&self, filters: &[CardFilter]) -> Option<Vec<Card>>;
     fn ranks(&self, opt_cards: Option<&[Card]>) -> HashMap<Rank, usize>;
     fn suits(&self, opt_cards: Option<&[Card]>) -> HashMap<Suit, usize>;
@@ -67,13 +68,14 @@ pub trait Validate {
 
 impl Hand {
     /// Create a new hand and evaluates if it is valid or not.
-    pub fn new(hand: &[Card]) -> Result<Hand, &'static str> {
+    pub fn new(hand: &[Card], player: &Player) -> Result<Hand, &'static str> {
         let valid_hand = Hand::is_valid(hand);
         if let Ok((hand_type, combo_type)) = valid_hand {
             let new_hand = Hand {
                 cards: hand.to_vec(),
                 kind: hand_type,
                 combo: combo_type,
+                player: player.id,
             };
             Ok(new_hand)
         } else {
@@ -464,7 +466,7 @@ impl Validate for Hand {
 #[cfg(test)]
 pub mod tests {
     use super::{ComboType, Gauge, Hand, Parse, Validate};
-    use crate::common::card::Card;
+    use crate::common::{card::Card, player::Player, rank::Rank, suit::Suit};
     use serde_json::from_reader;
     use std::fs::File;
 
@@ -476,6 +478,7 @@ pub mod tests {
     }
 
     pub fn get_test_hand(
+        test_player: &Player,
         combo_type: ComboType,
         rel_strength: RelativeStrength,
     ) -> Result<Hand, &'static str> {
@@ -510,7 +513,7 @@ pub mod tests {
         };
 
         if let Some(cards) = read_cards {
-            let hand_res = Hand::new(&cards);
+            let hand_res = Hand::new(&cards, &test_player);
             if let Ok(hand) = hand_res {
                 Ok(hand)
             } else {
@@ -524,8 +527,11 @@ pub mod tests {
     #[test]
     fn test_create_hand_single() {
         let cards: Vec<Card> = from_reader(File::open("./test/hand_single.json").unwrap()).unwrap();
-
-        if let Err(hand_err) = Hand::new(&cards) {
+        let test_player = Player {
+            id: 1,
+            cards: cards.clone(),
+        };
+        if let Err(hand_err) = Hand::new(&cards, &test_player) {
             panic!("{}", hand_err)
         }
     }
@@ -533,24 +539,48 @@ pub mod tests {
     #[test]
     fn test_create_hand_double() {
         let cards: Vec<Card> = from_reader(File::open("./test/hand_double.json").unwrap()).unwrap();
-
-        if let Err(hand_err) = Hand::new(&cards) {
+        let test_player = Player {
+            id: 1,
+            cards: cards.clone(),
+        };
+        if let Err(hand_err) = Hand::new(&cards, &test_player) {
             panic!("{}", hand_err)
         }
     }
 
     #[test]
     fn test_create_hand_combo() {
-        if let Err(hand_err) = get_test_hand(ComboType::Bomb, RelativeStrength::Normal) {
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        if let Err(hand_err) =
+            get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal)
+        {
             panic!("{}", hand_err)
         }
     }
 
     #[test]
     fn test_is_flush() {
-        let test_bomb_res = get_test_hand(ComboType::Bomb, RelativeStrength::Normal);
-        let test_flush_res = get_test_hand(ComboType::Flush, RelativeStrength::Normal);
-        let test_royal_flush_res = get_test_hand(ComboType::RoyalFlush, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let test_bomb_res = get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal);
+        let test_flush_res =
+            get_test_hand(&test_player, ComboType::Flush, RelativeStrength::Normal);
+        let test_royal_flush_res = get_test_hand(
+            &test_player,
+            ComboType::RoyalFlush,
+            RelativeStrength::Normal,
+        );
 
         if let (Ok(hand_bomb), Ok(hand_flush), Ok(hand_royal_flush)) =
             (&test_bomb_res, &test_flush_res, &test_royal_flush_res)
@@ -571,9 +601,21 @@ pub mod tests {
 
     #[test]
     fn test_is_straight() {
-        let test_bomb_res = get_test_hand(ComboType::Bomb, RelativeStrength::Normal);
-        let test_straight_res = get_test_hand(ComboType::Straight, RelativeStrength::Normal);
-        let test_royal_flush_res = get_test_hand(ComboType::RoyalFlush, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let test_bomb_res = get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal);
+        let test_straight_res =
+            get_test_hand(&test_player, ComboType::Straight, RelativeStrength::Normal);
+        let test_royal_flush_res = get_test_hand(
+            &test_player,
+            ComboType::RoyalFlush,
+            RelativeStrength::Normal,
+        );
 
         if let (Ok(hand_bomb), Ok(hand_straight), Ok(hand_royal_flush)) =
             (&test_bomb_res, &test_straight_res, &test_royal_flush_res)
@@ -594,8 +636,16 @@ pub mod tests {
 
     #[test]
     fn test_is_full_house() {
-        let test_bomb_res = get_test_hand(ComboType::Bomb, RelativeStrength::Normal);
-        let test_full_house_res = get_test_hand(ComboType::FullHouse, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let test_bomb_res = get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal);
+        let test_full_house_res =
+            get_test_hand(&test_player, ComboType::FullHouse, RelativeStrength::Normal);
 
         if let (Ok(hand_bomb), Ok(hand_full_house)) = (&test_bomb_res, &test_full_house_res) {
             assert_eq!(
@@ -617,8 +667,16 @@ pub mod tests {
 
     #[test]
     fn test_is_bomb() {
-        let test_bomb_res = get_test_hand(ComboType::Bomb, RelativeStrength::Normal);
-        let test_full_house_res = get_test_hand(ComboType::FullHouse, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let test_bomb_res = get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal);
+        let test_full_house_res =
+            get_test_hand(&test_player, ComboType::FullHouse, RelativeStrength::Normal);
 
         if let (Ok(hand_bomb), Ok(hand_full_house)) = (&test_bomb_res, &test_full_house_res) {
             assert_eq!(Hand::is_dupe_combo(&hand_bomb.cards, ComboType::Bomb), true);
@@ -637,9 +695,21 @@ pub mod tests {
 
     #[test]
     fn test_is_royal_flush() {
-        let test_bomb_res = get_test_hand(ComboType::Bomb, RelativeStrength::Normal);
-        let test_straight_res = get_test_hand(ComboType::Straight, RelativeStrength::Normal);
-        let test_royal_flush_res = get_test_hand(ComboType::RoyalFlush, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let test_bomb_res = get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal);
+        let test_straight_res =
+            get_test_hand(&test_player, ComboType::Straight, RelativeStrength::Normal);
+        let test_royal_flush_res = get_test_hand(
+            &test_player,
+            ComboType::RoyalFlush,
+            RelativeStrength::Normal,
+        );
 
         if let (Ok(hand_bomb), Ok(hand_straight), Ok(hand_royal_flush)) =
             (&test_bomb_res, &test_straight_res, &test_royal_flush_res)
@@ -660,12 +730,29 @@ pub mod tests {
 
     #[test]
     fn test_calculate_strength() {
-        let hand_straight = get_test_hand(ComboType::Straight, RelativeStrength::Normal);
-        let hand_flush = get_test_hand(ComboType::Flush, RelativeStrength::Normal);
-        let hand_full_house = get_test_hand(ComboType::FullHouse, RelativeStrength::Normal);
-        let hand_bomb = get_test_hand(ComboType::Bomb, RelativeStrength::Normal);
-        let hand_straight_flush = get_test_hand(ComboType::StraightFlush, RelativeStrength::Normal);
-        let hand_royal_flush = get_test_hand(ComboType::RoyalFlush, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let hand_straight =
+            get_test_hand(&test_player, ComboType::Straight, RelativeStrength::Normal);
+        let hand_flush = get_test_hand(&test_player, ComboType::Flush, RelativeStrength::Normal);
+        let hand_full_house =
+            get_test_hand(&test_player, ComboType::FullHouse, RelativeStrength::Normal);
+        let hand_bomb = get_test_hand(&test_player, ComboType::Bomb, RelativeStrength::Normal);
+        let hand_straight_flush = get_test_hand(
+            &test_player,
+            ComboType::StraightFlush,
+            RelativeStrength::Normal,
+        );
+        let hand_royal_flush = get_test_hand(
+            &test_player,
+            ComboType::RoyalFlush,
+            RelativeStrength::Normal,
+        );
 
         if let Ok(straight) = hand_straight {
             if let Ok(straight_strength) = straight.strength() {
@@ -701,11 +788,25 @@ pub mod tests {
 
     #[test]
     fn test_combo_cmp() {
-        let hand_straight = get_test_hand(ComboType::Straight, RelativeStrength::Normal);
-        let hand_straight_stronger = get_test_hand(ComboType::Straight, RelativeStrength::Stronger);
-        let hand_flush = get_test_hand(ComboType::Flush, RelativeStrength::Normal);
-        let hand_flush_weaker = get_test_hand(ComboType::Flush, RelativeStrength::Weaker);
-        let hand_full_house = get_test_hand(ComboType::FullHouse, RelativeStrength::Normal);
+        let test_player = Player {
+            id: 1,
+            cards: vec![Card {
+                rank: Rank::Ace,
+                suit: Suit::Club,
+            }],
+        };
+        let hand_straight =
+            get_test_hand(&test_player, ComboType::Straight, RelativeStrength::Normal);
+        let hand_straight_stronger = get_test_hand(
+            &test_player,
+            ComboType::Straight,
+            RelativeStrength::Stronger,
+        );
+        let hand_flush = get_test_hand(&test_player, ComboType::Flush, RelativeStrength::Normal);
+        let hand_flush_weaker =
+            get_test_hand(&test_player, ComboType::Flush, RelativeStrength::Weaker);
+        let hand_full_house =
+            get_test_hand(&test_player, ComboType::FullHouse, RelativeStrength::Normal);
 
         if let (Ok(straight), Ok(straight_stronger)) = (hand_straight, hand_straight_stronger) {
             assert_eq!(straight_stronger > straight, true)

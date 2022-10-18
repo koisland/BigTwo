@@ -1,8 +1,10 @@
 use crate::common::{rank::Rank, suit::Suit};
 
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering::{Equal, Greater, Less}, fmt::{Debug, self, Result}};
-
+use std::{
+    cmp::Ordering::{Equal, Greater, Less},
+    fmt::{self, Debug, Result},
+};
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct Card {

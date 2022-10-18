@@ -5,9 +5,9 @@ use crate::logic::game;
 
 fn main() {
     let args = GameArgs::parse();
-    game::start(args.players)
+    game::start(args.players, args.hotseat)
 }
 
-mod logic;
-mod common;
 mod args;
+mod common;
+mod logic;
