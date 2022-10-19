@@ -98,8 +98,8 @@ mod tests {
         let rank_ace = Rank::Ace;
         let rank_two = Rank::Two;
 
-        assert_eq!(rank_ace.as_str(), "Ace");
-        assert_eq!(rank_two.as_str(), "Two");
+        assert_eq!(rank_ace.as_str(), "A");
+        assert_eq!(rank_two.as_str(), "2");
     }
 
     #[test]

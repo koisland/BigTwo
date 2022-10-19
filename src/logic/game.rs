@@ -1,22 +1,35 @@
+use crate::common::{
+    card::Card, deck::Deck, hand::HandType, player::Player, rank::Rank, stack::CardStack,
+    suit::Suit,
+};
+use crate::logic::choice;
 use itertools::Itertools;
 use regex::Regex;
 use std::io;
 
-use crate::common::{card::Card, deck::Deck, hand::HandType, player::Player, stack::CardStack};
-use crate::logic::choice;
+pub const STARTING_CARD: Card = Card {
+    rank: Rank::Three,
+    suit: Suit::Diamond,
+};
 
 /// Initialize a game by creating a `Deck` of cards
 ///
-fn init(n_players: usize) -> Result<(Deck, Vec<Player>), &'static str> {
+fn init(n_players: usize) -> Result<(Deck, Vec<Player>, usize), &'static str> {
     // Generate deck.
     let mut players: Vec<Player> = vec![];
     let new_deck = Deck::new(true);
+    let mut starting_player: usize = 0;
 
     if let Ok(shuffled_deck) = new_deck {
         match shuffled_deck.divide(n_players) {
             Ok(chunks) => {
                 for (i, chunk) in chunks.into_iter().enumerate() {
                     let deck_chunk = chunk.clone().into_iter().cloned().collect_vec();
+
+                    // Check if starting player.
+                    if deck_chunk.contains(&STARTING_CARD) {
+                        starting_player = i;
+                    }
 
                     let player = Player {
                         id: i,
@@ -25,7 +38,7 @@ fn init(n_players: usize) -> Result<(Deck, Vec<Player>), &'static str> {
                     players.push(player)
                 }
 
-                Ok((shuffled_deck.clone(), players))
+                Ok((shuffled_deck.clone(), players, starting_player))
             }
             Err(err_msg) => panic!("{}", err_msg),
         }
@@ -33,12 +46,15 @@ fn init(n_players: usize) -> Result<(Deck, Vec<Player>), &'static str> {
         panic!("Failed to generate deck.")
     }
 }
+
+/// Get player index based on turn number and number of players.
 fn player_idx(turn_n: usize, n_players: usize) -> usize {
     (turn_n - 1) % n_players
 }
 
+/// Start main game loop.
 pub fn start(n_players: usize, hotseat: bool) {
-    let (_, mut players) = init(n_players).unwrap();
+    let (_, mut players, mut starting_player) = init(n_players).unwrap();
     let mut pile = CardStack::new();
 
     // https://dhghomon.github.io/easy_rust/Chapter_63.html
@@ -61,7 +77,11 @@ pub fn start(n_players: usize, hotseat: bool) {
         user_input.clear();
 
         // Get current player idx to access cards.
-        let curr_player_idx = player_idx(turn_n, n_players);
+        let curr_player_idx = if turn_n == 1 {
+            starting_player
+        } else {
+            player_idx(turn_n + starting_player, n_players)
+        };
 
         if let Some(prev_hand) = pile.stack.last() {
             // Clear stack as no other player could respond to player's hand.
@@ -131,8 +151,10 @@ pub fn start(n_players: usize, hotseat: bool) {
                 }
             }
             "r" => {
-                let (_, new_players) = init(n_players).unwrap();
+                let (_, new_players, new_starting_player) = init(n_players).unwrap();
                 let new_pile = CardStack::new();
+                turn_n = 1;
+                starting_player = new_starting_player;
                 players = new_players;
                 pile = new_pile;
             }
@@ -162,6 +184,11 @@ pub fn start(n_players: usize, hotseat: bool) {
                                     println!("Index of ({idx}) is not in hand.")
                                 }
                             }
+
+                            if turn_n == 1 && !playing_hand.contains(&STARTING_CARD) {
+                                println!("First hand must contain the {:?}\n", &STARTING_CARD);
+                                continue;
+                            };
 
                             if let Err(err_msg) = pile.add(&playing_hand, curr_player) {
                                 println!("Played hand is invalid: {err_msg}\n");
