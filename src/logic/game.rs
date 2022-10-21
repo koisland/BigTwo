@@ -55,6 +55,7 @@ fn player_idx(turn_n: usize, n_players: usize) -> usize {
 /// Start main game loop.
 pub fn start(n_players: usize, hotseat: bool) {
     let (_, mut players, mut starting_player) = init(n_players).unwrap();
+
     let mut pile = CardStack::new();
 
     // https://dhghomon.github.io/easy_rust/Chapter_63.html

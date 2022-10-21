@@ -1,4 +1,4 @@
-use crate::common::{card::Card, rank::Rank, suit::Suit};
+use crate::common::{card::Card, hand::ComboType, rank::Rank, suit::Suit};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -298,11 +298,16 @@ pub fn get_flushes(hand: &[Card]) -> PossibleCombos {
 }
 
 /// Generate all possible combos
-pub fn get_combos(hand: &[Card]) -> Option<HashMap<&str, Vec<Vec<Card>>>> {
+pub fn get_combos(hand: &[Card]) -> Option<HashMap<ComboType, Vec<Vec<Card>>>> {
     let mut handles: Vec<JoinHandle<PossibleCombos>> = vec![];
 
     // Define combo names and combo functions.
-    let combo_fn_names = vec!["straights", "full_houses", "bombs", "flushes"];
+    let combo_fn_names = vec![
+        ComboType::Straight,
+        ComboType::FullHouse,
+        ComboType::Bomb,
+        ComboType::Flush,
+    ];
     let combo_fns: Vec<fn(&[Card]) -> PossibleCombos> =
         vec![get_straights, get_full_houses, get_bombs, get_flushes];
 
@@ -313,10 +318,10 @@ pub fn get_combos(hand: &[Card]) -> Option<HashMap<&str, Vec<Vec<Card>>>> {
     }
 
     // Create combos hashmap to store possible combos
-    let mut combos: HashMap<&str, Vec<Vec<Card>>> = HashMap::new();
+    let mut combos: HashMap<ComboType, Vec<Vec<Card>>> = HashMap::new();
     for (handle, combo_name) in handles.into_iter().zip(&combo_fn_names) {
         if let Ok(Some(specific_combo)) = handle.join() {
-            combos.insert(combo_name, specific_combo);
+            combos.insert(*combo_name, specific_combo);
         }
     }
 
@@ -332,28 +337,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_add_combo() {
+    fn test_get_combo() {
         let test_seq_file = "test/cards_dupes.json";
         let cards: Vec<Card> =
             serde_json::from_reader(&std::fs::File::open(test_seq_file).unwrap()).unwrap();
 
         if let Some(combos) = get_combos(&cards) {
-            if let Some(straights) = combos.get("straights") {
+            if let Some(straights) = combos.get(&ComboType::Straight) {
                 println!("Straights:\n{:?}", straights);
                 println!("Number of straights: {}\n", straights.len());
                 assert_eq!(straights.len(), 8)
             };
-            if let Some(flushes) = combos.get("flushes") {
+            if let Some(flushes) = combos.get(&ComboType::Flush) {
                 println!("Flushes:\n{:?}", flushes);
                 println!("Number of flushes: {}\n", flushes.len());
                 assert_eq!(flushes.len(), 1)
             };
-            if let Some(bombs) = combos.get("bombs") {
+            if let Some(bombs) = combos.get(&ComboType::Bomb) {
                 println!("Bombs:\n{:?}", bombs);
                 println!("Number of bombs: {}\n", bombs.len());
                 assert_eq!(bombs.len(), 9)
             };
-            if let Some(full_houses) = combos.get("full_houses") {
+            if let Some(full_houses) = combos.get(&ComboType::FullHouse) {
                 println!("Full Houses:\n{:?}", full_houses);
                 println!("Number of full houses: {}\n", full_houses.len());
                 assert_eq!(full_houses.len(), 5)

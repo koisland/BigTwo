@@ -13,7 +13,7 @@ pub enum HandType {
 }
 
 /// Combo types reference: https://www.pagat.com/climbing/bigtwo.html
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum ComboType {
     None,
     Straight,
