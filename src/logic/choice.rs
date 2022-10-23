@@ -72,7 +72,7 @@ pub fn get_sorted_hands<'a>(hands: &'a [Vec<Card>], player: &Player) -> Vec<(&'a
     hands
         .iter()
         .filter_map(|hand| {
-            if let Ok(hand_strength) = Hand::new(hand, player).and_then(|hand| hand.strength()) {
+            if let Ok(hand_strength) = Hand::new(hand, player).and_then(|hand| Ok(hand.strength().unwrap())) {
                 Some((hand, hand_strength))
             } else {
                 None

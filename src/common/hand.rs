@@ -1,4 +1,4 @@
-use crate::common::{card::Card, player::Player, rank::Rank, suit::Suit};
+use crate::common::{card::Card, error::HandError, player::Player, rank::Rank, suit::Suit};
 use itertools::Itertools;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::{hash_map::Entry::Vacant, HashMap};
@@ -15,13 +15,13 @@ pub enum HandType {
 /// Combo types reference: https://www.pagat.com/climbing/bigtwo.html
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum ComboType {
-    None,
-    Straight,
-    Flush,
-    FullHouse,
-    Bomb,
-    StraightFlush,
-    RoyalFlush,
+    None = 0,
+    Straight = 1,
+    Flush = 2,
+    FullHouse = 3,
+    Bomb = 4,
+    StraightFlush = 5,
+    RoyalFlush = 6,
 }
 
 /// Enum for function defintions.
@@ -46,8 +46,12 @@ pub struct Hand {
 }
 
 pub trait Gauge {
+    const STRONGEST_FILTER: [CardFilter; 1];
+    const FREQ_STRONGEST_FILTER: [CardFilter; 2];
+    fn invalid_hand_err_msg(&self) -> String;
+    fn empty_combos_err_msg(&self, filters: &[CardFilter]) -> String;
     /// Calculates the strength of a `Hand`.
-    fn strength(&self) -> Result<f32, &'static str>;
+    fn strength(&self) -> Result<f32, HandError>;
 }
 
 pub trait Parse {
@@ -95,19 +99,17 @@ impl Parse for Hand {
 
             // Update filtered cards on iteration of filters.
             filtered_cards = match filter_opt {
-                CardFilter::Strongest => filtered_cards
-                    .unwrap()
+                CardFilter::Strongest => filtered_cards?
                     .into_iter()
                     .reduce(|c1, c2| c1.max(c2))
                     .map(|strongest_card| vec![strongest_card]),
-                CardFilter::Weakest => filtered_cards
-                    .unwrap()
+                CardFilter::Weakest => filtered_cards?
                     .into_iter()
                     .reduce(|c1, c2| c1.min(c2))
                     .map(|weakest_card| vec![weakest_card]),
                 // TODO: Simplify and separate repeat code.
                 CardFilter::MostFrequentSuits => {
-                    let remaining_cards = filtered_cards.unwrap();
+                    let remaining_cards = filtered_cards?;
                     let suit_cnts = self.suits(Some(&remaining_cards));
                     let most_freq_suit = suit_cnts
                         .into_iter()
@@ -123,7 +125,7 @@ impl Parse for Hand {
                     }
                 }
                 CardFilter::LeastFrequentSuits => {
-                    let remaining_cards = filtered_cards.unwrap();
+                    let remaining_cards = filtered_cards?;
                     let suit_cnts = self.suits(Some(&remaining_cards));
                     let least_freq_suit = suit_cnts
                         .into_iter()
@@ -139,7 +141,7 @@ impl Parse for Hand {
                     }
                 }
                 CardFilter::MostFrequentRanks => {
-                    let remaining_cards = filtered_cards.unwrap();
+                    let remaining_cards = filtered_cards?;
                     let rank_cnts = self.ranks(Some(&remaining_cards));
                     let most_freq_rank = rank_cnts
                         .into_iter()
@@ -155,7 +157,7 @@ impl Parse for Hand {
                     }
                 }
                 CardFilter::LeastFrequentRanks => {
-                    let remaining_cards = filtered_cards.unwrap();
+                    let remaining_cards = filtered_cards?;
                     let rank_cnts = self.ranks(Some(&remaining_cards));
                     let least_freq_rank = rank_cnts
                         .into_iter()
@@ -205,95 +207,96 @@ impl Parse for Hand {
 }
 
 impl Gauge for Hand {
-    fn strength(&self) -> Result<f32, &'static str> {
-        // Define filters for self.get_cards
-        let freq_strongest_filter =
-            Vec::from([CardFilter::MostFrequentRanks, CardFilter::Strongest]);
-        let strongest_filter = Vec::from([CardFilter::Strongest]);
+    fn invalid_hand_err_msg(&self) -> String {
+        format!(
+            "Error: Invalid hand ({:?}) of {:?}s.",
+            self.cards, self.kind
+        )
+    }
 
-        let hand_strength_res = match self.kind {
+    fn empty_combos_err_msg(&self, filters: &[CardFilter]) -> String {
+        format!(
+            "Error: Card filters ({:?}) unable to get {:?} from cards ({:?}).",
+            filters, self.kind, self.cards
+        )
+    }
+
+    const FREQ_STRONGEST_FILTER: [CardFilter; 2] = [CardFilter::MostFrequentRanks, CardFilter::Strongest];
+
+    const STRONGEST_FILTER: [CardFilter; 1] = [CardFilter::Strongest];
+
+    fn strength(&self) -> Result<f32, HandError> {
+        match self.kind {
             HandType::Single => {
                 // Return card's base value.
-                return Ok(self.cards.first().map(|card| card.value()).unwrap());
+                self.cards.first().map_or(
+                    Err(HandError::InvalidHand(self.invalid_hand_err_msg())),
+                    |card| Ok(card.value()),
+                )
             }
             HandType::Double => {
-                if let Some(strongest_card) = self.get_cards(&strongest_filter) {
+                if let Some(strongest_card) = self.get_cards(&Hand::STRONGEST_FILTER) {
                     // Multiply by 2.0 for doubles.
-                    Ok(strongest_card.last().unwrap().value() * 2.0)
+                    strongest_card.last().map_or(
+                        Err(HandError::InvalidHand(self.invalid_hand_err_msg())),
+                        |last_card| Ok(last_card.value() * 2.0),
+                    )
                 } else {
-                    Err("Error: Hand is empty or cannot get strongest card from double.")
+                    Err(HandError::InvalidHand(
+                        self.empty_combos_err_msg(&Hand::STRONGEST_FILTER),
+                    ))
                 }
             }
             HandType::Combo => {
                 // Lowest card value is 1.1 (3 of Diamonds), highest is 13.4 (2 of Spades)
-                let combo_multiplier_res = match self.combo {
-                    ComboType::Straight => {
-                        if let Some(strongest_card) = self.get_cards(&strongest_filter) {
-                            Ok(strongest_card.last().unwrap().value().powf(1.0))
+                let hand_strength_multiplier_res: Result<f32, HandError> = match self.combo {
+                    ComboType::Straight
+                    | ComboType::Flush
+                    | ComboType::StraightFlush
+                    | ComboType::RoyalFlush => {
+                        if let Some(strongest_card) = self.get_cards(&Hand::STRONGEST_FILTER) {
+                            let combo_multiplier = (self.combo as usize) as f32;
+                            strongest_card
+                                .last()
+                                .map_or(Err(HandError::InvalidHand("".to_string())), |card| {
+                                    Ok(card.value().powf(combo_multiplier))
+                                })
                         } else {
-                            Err("Error: Hand is empty or cannot get strongest card from straight.")
+                            Err(HandError::InvalidHand(
+                                self.empty_combos_err_msg(&Hand::STRONGEST_FILTER),
+                            ))
                         }
                     }
-                    ComboType::Flush => {
-                        if let Some(strongest_card) = self.get_cards(&strongest_filter) {
-                            Ok(strongest_card.last().unwrap().value().powf(2.0))
+                    ComboType::FullHouse | ComboType::Bomb => {
+                        if let Some(quad) = self.get_cards(&Hand::FREQ_STRONGEST_FILTER) {
+                            let combo_multiplier = (self.combo as usize) as f32;
+                            quad.iter().max().map_or(
+                                Err(HandError::InvalidHand(
+                                    self.empty_combos_err_msg(&Hand::FREQ_STRONGEST_FILTER),
+                                )),
+                                |strongest_card| Ok(strongest_card.value().powf(combo_multiplier)),
+                            )
                         } else {
-                            Err("Error: Hand is empty or cannot get strongest card from flush.")
+                            Err(HandError::InvalidHand(
+                                self.empty_combos_err_msg(&Hand::FREQ_STRONGEST_FILTER),
+                            ))
                         }
                     }
-                    ComboType::FullHouse => {
-                        if let Some(triple) = self.get_cards(&freq_strongest_filter) {
-                            if let Some(strongest_card) = triple.iter().max() {
-                                Ok(strongest_card.value().powf(3.0))
-                            } else {
-                                Err("Error: Cannot get strongest card from full house.")
-                            }
-                        } else {
-                            Err("Error: No triples found in full house.")
-                        }
-                    }
-                    ComboType::Bomb => {
-                        if let Some(quad) = self.get_cards(&freq_strongest_filter) {
-                            if let Some(strongest_card) = quad.iter().max() {
-                                Ok(strongest_card.value().powf(4.0))
-                            } else {
-                                Err("Error: Cannot get strongest card from bomb.")
-                            }
-                        } else {
-                            Err("Error: No quads found in bomb.")
-                        }
-                    }
-                    ComboType::StraightFlush => {
-                        if let Some(strongest_card) = self.get_cards(&strongest_filter) {
-                            Ok(strongest_card.last().unwrap().value().powf(5.0))
-                        } else {
-                            Err("Error: Hand is empty or cannot get strongest card from straight flush.")
-                        }
-                    }
-                    ComboType::RoyalFlush => {
-                        if let Some(strongest_card) = self.get_cards(&strongest_filter) {
-                            Ok(strongest_card.last().unwrap().value().powf(6.0))
-                        } else {
-                            Err("Error: Hand is empty or cannot get strongest card from royal flush.")
-                        }
-                    }
-                    _ => Err("Error: Invalid combo type."),
+                    _ => Err(HandError::InvalidHand(
+                        "Error: Invalid combo type.".to_string(),
+                    )),
                 };
 
-                if let Ok(combo_multiplier) = combo_multiplier_res {
+                if let Ok(hand_strength_multiplier) = hand_strength_multiplier_res {
                     // Multiply by 5.0 for combo and raise combo to power of multiplier.
-                    return Ok(combo_multiplier * 5.0);
+                    return Ok(hand_strength_multiplier * 5.0);
                 } else {
-                    return Err(combo_multiplier_res.unwrap_err());
+                    return Err(hand_strength_multiplier_res.unwrap_err());
                 }
             }
-            HandType::None => Err("Error: Cannot calculate hand strength for invalid/empty hand."),
-        };
-
-        if let Ok(hand_strength) = hand_strength_res {
-            Ok(hand_strength)
-        } else {
-            Err(hand_strength_res.unwrap_err())
+            HandType::None => Err(HandError::InvalidHand(
+                "Error: Cannot calculate hand strength for invalid/empty hand.".to_string(),
+            )),
         }
     }
 }
@@ -822,6 +825,19 @@ pub mod tests {
     #[test]
     #[should_panic]
     fn test_invalid_combo_cmp() {
-        todo!()
+        let single_cards = vec![Card {
+            rank: Rank::Ace,
+            suit: Suit::Club,
+        }];
+        let test_player = Player {
+            id: 1,
+            cards: single_cards.clone(),
+        };
+        let hand_straight =
+            get_test_hand(&test_player, ComboType::Straight, RelativeStrength::Normal);
+
+        let hand_single = Hand::new(&single_cards, &test_player);
+
+        let _ = hand_single > hand_straight;
     }
 }

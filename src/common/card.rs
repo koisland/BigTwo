@@ -3,7 +3,7 @@ use crate::common::{rank::Rank, suit::Suit};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering::{Equal, Greater, Less},
-    fmt::{self, Debug, Result},
+    fmt::{self, Debug},
 };
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash)]

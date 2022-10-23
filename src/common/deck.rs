@@ -1,6 +1,4 @@
-use crate::common::card::Card;
-use crate::common::rank::Rank;
-use crate::common::suit::Suit;
+use crate::common::{card::Card, error::DeckError, rank::Rank, suit::Suit};
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -13,7 +11,7 @@ pub struct Deck {
 
 impl Deck {
     pub fn new(shuffle: bool) -> Result<Deck, ()> {
-        let mut cards: Vec<Card> = vec![];
+        let mut cards: Vec<Card> = Vec::with_capacity(52);
 
         for suit in Suit::iter() {
             for rank in Rank::iter() {
@@ -30,9 +28,11 @@ impl Deck {
         Ok(Deck { cards })
     }
 
-    pub fn divide(&self, n_chunks: usize) -> Result<Vec<Vec<&Card>>, &str> {
+    pub fn divide(&self, n_chunks: usize) -> Result<Vec<Vec<&Card>>, DeckError> {
+        // TODO: Implement odd n-players and 3 of diamonds rule.
         if n_chunks > 52 {
-            return Err("Cannot divide deck into greater than 52 chunks.");
+            let err_msg = format!("Deck cannot have greater than 52 chunks. ({}) ", n_chunks);
+            return Err(DeckError::InvalidChunks(err_msg));
         }
 
         let player_card_cnt = self.cards.len() / n_chunks;

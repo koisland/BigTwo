@@ -40,7 +40,7 @@ impl CardStack {
             if let Some(previous_hand) = self.stack.last() {
                 match self.kind {
                     HandType::Single | HandType::Double | HandType::Combo => {
-                        if new_hand.strength() < previous_hand.strength() {
+                        if new_hand < *previous_hand {
                             return Err("Previous hand is stronger than added hand.");
                         }
                     }

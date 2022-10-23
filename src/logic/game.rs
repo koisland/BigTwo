@@ -2,7 +2,7 @@ use crate::common::{
     card::Card, deck::Deck, hand::HandType, player::Player, rank::Rank, stack::CardStack,
     suit::Suit,
 };
-use crate::logic::choice;
+use crate::logic::choice::{self, choose_move};
 use itertools::Itertools;
 use regex::Regex;
 use std::io;
@@ -40,7 +40,7 @@ fn init(n_players: usize) -> Result<(Deck, Vec<Player>, usize), &'static str> {
 
                 Ok((shuffled_deck.clone(), players, starting_player))
             }
-            Err(err_msg) => panic!("{}", err_msg),
+            Err(err_msg) => panic!("{:?}", err_msg),
         }
     } else {
         panic!("Failed to generate deck.")
@@ -135,7 +135,11 @@ pub fn start(n_players: usize, hotseat: bool) {
                     for _ in 0..n_players - 1 {
                         turn_n += 1;
                         let curr_player_idx = player_idx(turn_n, n_players);
-                        if let Some(ai_hand) = &players.get(curr_player_idx) {}
+                        let remaining_cards = players.iter().map(|player| player.cards.len()).collect_vec();
+
+                        // if let Some(ai_hand) = &players.get(curr_player_idx) {
+                        //     choose_move(cards, player, prev_hand, curr_player_idx, &remaining_cards)
+                        // }
                     }
                 } else {
                     turn_n += 1;
