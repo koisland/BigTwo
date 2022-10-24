@@ -17,11 +17,11 @@ pub enum HandType {
 pub enum ComboType {
     None = 0,
     Straight = 1,
-    Flush = 2,
-    FullHouse = 3,
-    Bomb = 4,
-    StraightFlush = 5,
-    RoyalFlush = 6,
+    Flush = 3,
+    FullHouse = 5,
+    Bomb = 7,
+    StraightFlush = 9,
+    RoyalFlush = 11,
 }
 
 /// Enum for function defintions.
@@ -277,7 +277,7 @@ impl Gauge for Hand {
                                 )),
                                 // Multiply by 4.0 to ensure that flushes are weaker than full-houses.
                                 |strongest_card| {
-                                    Ok((strongest_card.value() * 4.0).powf(combo_multiplier))
+                                    Ok(strongest_card.value().powf(combo_multiplier))
                                 },
                             )
                         } else {
@@ -768,27 +768,27 @@ pub mod tests {
         };
         if let Ok(flush) = hand_flush {
             if let Ok(flush_strength) = flush.strength() {
-                assert_eq!(273.80002, flush_strength)
+                assert_eq!(2026.1201, flush_strength)
             }
         };
         if let Ok(full_house) = hand_full_house {
             if let Ok(full_house_strength) = full_house.strength() {
-                assert_eq!(787.32, full_house_strength)
+                assert_eq!(22958.254, full_house_strength)
             }
         };
         if let Ok(bomb) = hand_bomb {
             if let Ok(bomb_strength) = bomb.strength() {
-                assert_eq!(4251.5283, bomb_strength)
+                assert_eq!(669462.6, bomb_strength)
             }
         };
         if let Ok(straight_flush) = hand_straight_flush {
             if let Ok(straight_flush_strength) = straight_flush.strength() {
-                assert_eq!(22958.254, straight_flush_strength)
+                assert_eq!(19521532.0, straight_flush_strength)
             }
         };
         if let Ok(royal_flush) = hand_royal_flush {
             if let Ok(royal_flush_strength) = royal_flush.strength() {
-                assert_eq!(18176072.0, royal_flush_strength)
+                assert_eq!(5328542400000.0, royal_flush_strength)
             }
         };
     }
