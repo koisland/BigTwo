@@ -221,7 +221,8 @@ impl Gauge for Hand {
         )
     }
 
-    const FREQ_STRONGEST_FILTER: [CardFilter; 2] = [CardFilter::MostFrequentRanks, CardFilter::Strongest];
+    const FREQ_STRONGEST_FILTER: [CardFilter; 2] =
+        [CardFilter::MostFrequentRanks, CardFilter::Strongest];
 
     const STRONGEST_FILTER: [CardFilter; 1] = [CardFilter::Strongest];
 
@@ -268,13 +269,16 @@ impl Gauge for Hand {
                         }
                     }
                     ComboType::FullHouse | ComboType::Bomb => {
-                        if let Some(quad) = self.get_cards(&Hand::FREQ_STRONGEST_FILTER) {
+                        if let Some(dupes) = self.get_cards(&Hand::FREQ_STRONGEST_FILTER) {
                             let combo_multiplier = (self.combo as usize) as f32;
-                            quad.iter().max().map_or(
+                            dupes.iter().max().map_or(
                                 Err(HandError::InvalidHand(
                                     self.empty_combos_err_msg(&Hand::FREQ_STRONGEST_FILTER),
                                 )),
-                                |strongest_card| Ok(strongest_card.value().powf(combo_multiplier)),
+                                // Multiply by 4.0 to ensure that flushes are weaker than full-houses.
+                                |strongest_card| {
+                                    Ok((strongest_card.value() * 4.0).powf(combo_multiplier))
+                                },
                             )
                         } else {
                             Err(HandError::InvalidHand(

@@ -8,6 +8,6 @@ pub struct GameArgs {
     #[arg(short, long, default_value_t = 4)]
     pub players: usize,
     /// Play a hotseat game without AI.
-    #[arg(long, default_value_t = true)]
+    #[arg(long)]
     pub hotseat: bool,
 }

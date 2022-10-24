@@ -2,7 +2,7 @@ use crate::common::{
     card::Card, deck::Deck, hand::HandType, player::Player, rank::Rank, stack::CardStack,
     suit::Suit,
 };
-use crate::logic::choice::{self, choose_move};
+use crate::logic::choice::choose_move;
 use itertools::Itertools;
 use regex::Regex;
 use std::io;
@@ -60,20 +60,19 @@ pub fn start(n_players: usize, hotseat: bool) {
 
     // https://dhghomon.github.io/easy_rust/Chapter_63.html
     let user_input_key_msg =
-        "- q : Quit\n- p : Pass\n- h : Print this message.\n- s : Sort hand.\n- r : Restart.\n";
+        "- q : Quit\n- p : Pass\n- h : Print this message.\n- s : Sort hand.\n- r : Restart.\n-c : Player a computer move.\n";
     let welcome_msg = format!(
         "\nWelcome to Big 2!\n{user_input_key_msg}\nPlaying against {n_players} players.\n"
     );
 
     println!("{welcome_msg}");
 
-    let mut exit_condition = false;
     let mut user_input = String::new();
     let card_idx_pattern = Regex::new(r"(\d+,*)+").unwrap();
     let mut turn_n: usize = 1;
 
     // Main game loop.
-    while !exit_condition {
+    loop {
         // First clear the String. Otherwise it will keep adding to it
         user_input.clear();
 
@@ -119,40 +118,68 @@ pub fn start(n_players: usize, hotseat: bool) {
             }
         }
 
-        // Get the stdin from the user, and put it in user_input.
-        io::stdin().read_line(&mut user_input).unwrap();
+        // If hotseat, allow user input.
+        if (curr_player_idx == 1) | (hotseat) {
+            // Get the stdin from the user, and put it in user_input.
+            io::stdin().read_line(&mut user_input).unwrap();
+        } else {
+            // If computer player, use computer move.
+            user_input.push('c')
+        }
 
         // Match user input.
         match user_input.trim() {
-            "q" => {
-                println!("See you later!");
-                exit_condition = true
-            }
-            "p" => {
-                // TODO: AI move.
-                if !hotseat {
-                    // For each AI player.
-                    for _ in 0..n_players - 1 {
-                        turn_n += 1;
-                        let curr_player_idx = player_idx(turn_n, n_players);
-                        let remaining_cards = players.iter().map(|player| player.cards.len()).collect_vec();
+            "c" => {
+                let remaining_cards = players
+                    .iter()
+                    .map(|player| player.cards.len())
+                    .collect_vec();
+                let prev_hand = pile.stack.last();
+                if let Some(comp_player) = players.get_mut(curr_player_idx) {
+                    if let Some((hand, player)) = choose_move(
+                        &comp_player.cards,
+                        comp_player,
+                        prev_hand,
+                        curr_player_idx,
+                        &remaining_cards,
+                    ) {
+                        pile.add(&hand.cards, player).unwrap();
 
-                        // if let Some(ai_hand) = &players.get(curr_player_idx) {
-                        //     choose_move(cards, player, prev_hand, curr_player_idx, &remaining_cards)
-                        // }
+                        let new_cards = player
+                            .cards
+                            .iter()
+                            .filter(|card| !hand.cards.contains(&card))
+                            .cloned()
+                            .collect_vec();
+
+                        if new_cards.is_empty() {
+                            println!("Game over.");
+                            break;
+                        }
+                        comp_player.cards = new_cards;
                     }
-                } else {
+
                     turn_n += 1;
                 }
             }
+            "q" => {
+                println!("See you later!");
+                // exit_condition = true;
+                break;
+            }
+            "p" => {
+                turn_n += 1;
+            }
             "h" => {
-                println!("{user_input_key_msg}")
+                println!("{user_input_key_msg}");
+                continue;
             }
             "s" => {
                 if let Some(curr_player) = players.get_mut(curr_player_idx) {
                     let mut sorted_hand = curr_player.cards.clone();
                     sorted_hand.sort();
-                    curr_player.cards = sorted_hand
+                    curr_player.cards = sorted_hand;
+                    continue;
                 }
             }
             "r" => {
@@ -201,7 +228,7 @@ pub fn start(n_players: usize, hotseat: bool) {
                             } else {
                                 if new_hand.is_empty() {
                                     println!("You won!");
-                                    exit_condition = true
+                                    break;
                                 }
                                 // Set player hand to new hand.
                                 curr_player.cards = new_hand

@@ -1,49 +1,3 @@
-// test_add_seq.json
-/*
-    *4 plays
-
-    doubles
-    - A
-
-    combo
-    - straight
-        - 9
-        - 10
-        - J
-        - Q
-        - K
-    - full house
-        - triple 5
-        - double 3
-
-    singles
-    - J
-
-*/
-
-/*
-
-    *5 plays
-
-    doubles
-    - 3
-    - 5
-    - A
-
-    combo
-    - straight
-        - 9
-        - 10
-        - J
-        - Q
-        - K
-
-    singles
-    - 5
-    - J
-
-*/
-
 use crate::common::{
     card::Card,
     hand::{ComboType, Gauge, Hand, HandType},
@@ -52,27 +6,13 @@ use crate::common::{
 use crate::logic::combo::{get_combos, get_dupes};
 use itertools::Itertools;
 
-/*
-0 - [♥4]
-1 - [♦2]
-2 - [♥9]
-3 - [♣3]
-4 - [♦7]
-5 - [♦9]
-6 - [♥7]
-7 - [♣A]
-8 - [♣K]
-9 - [♦J]
-10 - [♦Q]
-11 - [♦3]
-12 - [♠3]
-*/
-
 pub fn get_sorted_hands<'a>(hands: &'a [Vec<Card>], player: &Player) -> Vec<(&'a Vec<Card>, f32)> {
     hands
         .iter()
         .filter_map(|hand| {
-            if let Ok(hand_strength) = Hand::new(hand, player).and_then(|hand| Ok(hand.strength().unwrap())) {
+            if let Ok(hand_strength) =
+                Hand::new(hand, player).and_then(|hand| Ok(hand.strength().unwrap()))
+            {
                 Some((hand, hand_strength))
             } else {
                 None
@@ -85,7 +25,7 @@ pub fn get_sorted_hands<'a>(hands: &'a [Vec<Card>], player: &Player) -> Vec<(&'a
 fn filter_cards_by_strength(
     cards: &[Vec<Card>],
     player: &Player,
-    prev_hand: &Hand,
+    prev_hand: Option<&Hand>,
     omit_cards: &[&Card],
     opponent_close_to_win: bool,
 ) -> Option<Hand> {
@@ -95,7 +35,15 @@ fn filter_cards_by_strength(
             let hand = Hand::new(cards, player).unwrap();
 
             let contains_cards_to_omit = cards.iter().any(|card| omit_cards.contains(&card));
-            if hand > *prev_hand && !contains_cards_to_omit {
+
+            // If previous hand exists, compare hands. Otherwise new hand is always stronger.
+            let is_stronger_hand = if let Some(prev_hand) = prev_hand {
+                hand > *prev_hand
+            } else {
+                true
+            };
+
+            if is_stronger_hand && !contains_cards_to_omit {
                 Some(hand)
             } else {
                 None
@@ -109,7 +57,8 @@ fn filter_cards_by_strength(
         possible_hands.first()
     } else {
         possible_hands.last()
-    }.cloned()
+    }
+    .cloned()
 }
 
 // Devalue sequential doubles
@@ -120,15 +69,15 @@ fn filter_cards_by_strength(
 pub fn choose_move<'a>(
     cards: &[Card],
     player: &'a Player,
-    prev_hand: &Hand,
+    prev_hand: Option<&Hand>,
     current_pos: usize,
     n_cards_left: &[usize],
 ) -> Option<(Hand, &'a Player)> {
-    // If any player is under some number of cards.
+    // If any player is under 4 cards.
     let opponent_close_to_win = n_cards_left
         .iter()
         .enumerate()
-        .any(|(i, n_cards)| *n_cards <= 5 && i != current_pos);
+        .any(|(i, n_cards)| *n_cards <= 4 && i != current_pos);
 
     let mut strongest_hands: Vec<Vec<Card>> = vec![];
 
@@ -169,8 +118,8 @@ pub fn choose_move<'a>(
         vec![]
     };
 
-    // println!("Avoiding: {:?}", strongest_hand_cards);
-    let possible_hand_to_play: Option<Hand> = match prev_hand.kind {
+    let prev_hand_kind = prev_hand.map(|hand| hand.kind).unwrap_or(HandType::None);
+    let possible_hand_to_play: Option<Hand> = match prev_hand_kind {
         HandType::Single => {
             let singles = cards.iter().map(|card| vec![*card]).collect_vec();
             filter_cards_by_strength(
@@ -215,7 +164,29 @@ pub fn choose_move<'a>(
                 None
             }
         }
-        _ => None,
+        _ => {
+            // Use five card hands first, then doubles and then singles.
+            let possible_hands = if let Some(five_cards) = five_card_combos {
+                five_cards
+                    .into_iter()
+                    .map(|(_, cards)| cards)
+                    .flatten()
+                    .collect_vec()
+            } else if let Some(doubles) = dupe_combos {
+                doubles
+            } else {
+                cards.iter().map(|card| vec![*card]).collect_vec()
+            };
+
+            // On new stack, play hand with no cards filtered out.
+            filter_cards_by_strength(
+                &possible_hands,
+                player,
+                prev_hand,
+                &[],
+                opponent_close_to_win,
+            )
+        }
     };
 
     possible_hand_to_play.map(|hand_to_play| (hand_to_play, player))
@@ -253,7 +224,9 @@ mod tests {
         )
         .unwrap();
 
-        if let Some(chosen_single) = choose_move(&cards, &test_player, &hand_single, 0, &[12, 12]) {
+        if let Some(chosen_single) =
+            choose_move(&cards, &test_player, Some(&hand_single), 0, &[12, 12])
+        {
             println!("{:?}", chosen_single)
         }
     }
@@ -282,7 +255,9 @@ mod tests {
         )
         .unwrap();
 
-        if let Some(chosen_double) = choose_move(&cards, &test_player, &hand_double, 0, &[12, 12]) {
+        if let Some(chosen_double) =
+            choose_move(&cards, &test_player, Some(&hand_double), 0, &[12, 12])
+        {
             println!("{:?}", chosen_double)
         }
     }
@@ -323,7 +298,8 @@ mod tests {
         )
         .unwrap();
 
-        if let Some(chosen_combo) = choose_move(&cards, &test_player, &hand_straight, 0, &[12, 12])
+        if let Some(chosen_combo) =
+            choose_move(&cards, &test_player, Some(&hand_straight), 0, &[12, 12])
         {
             println!("{:?}", chosen_combo)
         }
